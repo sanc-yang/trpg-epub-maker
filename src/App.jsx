@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { parseRoll20Html } from './utils/parseRoll20'
+import { generateEpub, generatePreviewHtml } from './utils/generateEpub'
 import './App.css'
 
 const TYPE_LABEL = {
@@ -40,25 +41,25 @@ function RollBlock({ roll }) {
       maxWidth: 480,
     }}>
       {/* 캐릭터명 */}
-      <div style={{ fontSize: '0.72em', color: '#ccc', letterSpacing: '0.15em', marginBottom: 2 }}>
+      <div style={{ fontSize: '0.72em', color: '#ccc', letterSpacing: '0.15em', marginBottom: 1 }}>
         {roll.character}
       </div>
       {/* 기능명 */}
-      <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#e5d280', marginBottom: 2 }}>
+      <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#e5d280', marginBottom: 1 }}>
         {roll.skill}
       </div>
       {/* 난이도 */}
-      <div style={{ fontSize: '0.8em', color: '#fff', marginBottom: 6 }}>
+      <div style={{ fontSize: '0.8em', color: '#fff', marginBottom: 3 }}>
         보통
       </div>
       {/* 성공 정도 바 */}
       <div style={{
         background: barColor,
-        padding: '4px 0',
+        padding: '2px 0',
         fontWeight: 'bold',
         fontSize: '0.95em',
         letterSpacing: '0.1em',
-        marginBottom: 8,
+        marginBottom: 4,
       }}>
         {roll.successLevel}
       </div>
@@ -70,7 +71,7 @@ function RollBlock({ roll }) {
         gap: 24,
         fontSize: '1.6em',
         fontWeight: 'bold',
-        padding: '4px 0 8px',
+        padding: '2px 0 4px',
       }}>
         <span>{roll.rollValue}</span>
         <span style={{ fontSize: '0.5em', color: '#aaa' }}>vs.</span>
@@ -116,6 +117,9 @@ export default function App() {
   const [fileName, setFileName] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [stats, setStats] = useState(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [includeSadam, setIncludeSadam] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const handleFile = useCallback((file) => {
     if (!file || !file.name.endsWith('.html')) return
@@ -148,6 +152,23 @@ export default function App() {
   const onDragLeave = () => setIsDragging(false)
 
   const onInputChange = (e) => handleFile(e.target.files[0])
+
+  const handleDownload = useCallback(async () => {
+    if (!messages.length || isGenerating) return
+    setIsGenerating(true)
+    try {
+      const baseName = fileName.replace(/\.html$/i, '')
+      const blob = await generateEpub(messages, { title: baseName, includeSadam })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${baseName}.epub`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setIsGenerating(false)
+    }
+  }, [messages, fileName, isGenerating, includeSadam])
 
   return (
     <div style={{ fontFamily: 'sans-serif', maxWidth: 900, margin: '0 auto', padding: 24 }}>
@@ -202,6 +223,69 @@ export default function App() {
               <strong>{count}</strong> {label}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* EPUB 다운로드 */}
+      {messages.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+          <button
+            onClick={handleDownload}
+            disabled={isGenerating}
+            style={{
+              background: isGenerating ? '#aaa' : '#2c5f2e',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '10px 24px',
+              fontSize: '1em',
+              fontWeight: 'bold',
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
+          </button>
+          <button
+            onClick={() => setShowPreview(v => !v)}
+            style={{
+              background: showPreview ? '#4a4a4a' : '#f0f0f0',
+              color: showPreview ? '#fff' : '#333',
+              border: '1px solid #ccc',
+              borderRadius: 6,
+              padding: '10px 20px',
+              fontSize: '1em',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+            }}
+          >
+            {showPreview ? '미리보기 닫기' : '👁 미리보기'}
+          </button>
+          <label style={{ fontSize: '0.9em', color: '#555', cursor: 'pointer', userSelect: 'none' }}>
+            <input
+              type="checkbox"
+              checked={includeSadam}
+              onChange={e => setIncludeSadam(e.target.checked)}
+              style={{ marginRight: 6 }}
+            />
+            사담(OOC) 포함
+          </label>
+        </div>
+      )}
+
+      {/* EPUB 미리보기 */}
+      {showPreview && messages.length > 0 && (
+        <div style={{ marginBottom: 24, border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd' }}>
+            EPUB 미리보기 — 실제 리더기 폰트에 따라 다를 수 있어요
+          </div>
+          <iframe
+            srcDoc={generatePreviewHtml(messages, {
+              title: fileName.replace(/\.html$/i, ''),
+              includeSadam,
+            })}
+            style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
+            title="EPUB 미리보기"
+          />
         </div>
       )}
 

@@ -86,6 +86,8 @@ export function parseRoll20Html(htmlString) {
         content = el.textContent.trim();
       }
 
+      if (content === 'This message has been hidden.' && !roll) continue;
+
       messages.push({
         id,
         type: isHidden ? 'hidden' : 'general',
