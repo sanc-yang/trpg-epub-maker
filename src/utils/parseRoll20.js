@@ -237,16 +237,26 @@ function stripInlineColor(html) {
 }
 
 function pxFontSizeToEm(css) {
-  return css.replace(
-    /font-size\s*:\s*(\d+(?:\.\d+)?)px/gi,
-    (_, px) => {
-      const em = (parseFloat(px) / 16).toFixed(4).replace(/\.?0+$/, '');
-      return `font-size: ${em}em`;
+  // 1단계: em 값은 rem으로 변환 (중첩 영향 제거), 0.75rem 미만이면 0.75rem으로 클램핑
+  let result = css.replace(
+    /font-size\s*:\s*(\d+(?:\.\d+)?)em/gi,
+    (_, em) => {
+      const clamped = Math.max(parseFloat(em), 0.75);
+      return `font-size: ${clamped}rem`;
     }
   );
+  // 2단계: px → rem 변환 (최소 12px, 1.1배 스케일)
+  result = result.replace(
+    /font-size\s*:\s*(\d+(?:\.\d+)?)px/gi,
+    (_, px) => {
+      const rem = (Math.max(parseFloat(px), 12) / 16 * 1.1).toFixed(4).replace(/\.?0+$/, '');
+      return `font-size: ${rem}rem`;
+    }
+  );
+  return result;
 }
 
-const TEMPLATE_VOID_TAGS = new Set(['br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr']);
+const TEMPLATE_VOID_TAGS = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr']);
 const TEMPLATE_SKIP_TAGS = new Set(['script', 'style']);
 const TEMPLATE_SKIP_ATTRS = new Set(['id', 'onclick', 'onmouseenter', 'onmouseleave', 'onmouseover', 'onmouseout']);
 
@@ -261,7 +271,10 @@ function templateNodeToHtml(node) {
     if (TEMPLATE_SKIP_TAGS.has(tag)) return escHtml(node.textContent || '');
     const attrs = Array.from(node.attributes)
       .filter(a => !TEMPLATE_SKIP_ATTRS.has(a.name))
-      .map(a => `${a.name}="${(a.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
+      .map(a => {
+        const val = a.name === 'style' ? pxFontSizeToEm(a.value || '') : (a.value || '')
+        return `${a.name}="${val.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`
+      })
       .join(' ');
     if (TEMPLATE_VOID_TAGS.has(tag)) {
       const errorAttr = tag === 'img' ? ` onerror="this.style.display='none'"` : '';
