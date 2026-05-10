@@ -14,18 +14,27 @@ export async function generateEpub(messages, meta = {}) {
   const includeSadam = meta.includeSadam ?? false
   const id = `trpg-${Date.now()}`
   const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
-
   const bodyHtml = messagesToHtml(messages, includeSadam)
 
-  // 표지 이미지 파싱
-  let coverExt = null, coverMime = null, coverB64 = null
+  const coverTitle = meta.coverTitle || title
+  const catchPhrase = meta.catchPhrase || ''
+  const synopsis = meta.synopsis || ''
+
+  // cover 이미지 결정: 업로드 이미지 or canvas 렌더링
+  let coverFileName, coverMime, coverB64
   if (meta.coverImage) {
     const m = meta.coverImage.match(/^data:([^;]+);base64,(.+)$/)
     if (m) {
       coverMime = m[1]
       coverB64 = m[2]
-      coverExt = COVER_EXT_MAP[coverMime] || 'jpg'
+      coverFileName = `cover.${COVER_EXT_MAP[coverMime] || 'jpg'}`
     }
+  }
+  if (!coverB64) {
+    const dataUrl = await renderCoverToPng({ coverTitle, catchPhrase, synopsis })
+    coverMime = 'image/png'
+    coverB64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+    coverFileName = 'cover.png'
   }
 
   const zip = new JSZip()
@@ -33,20 +42,73 @@ export async function generateEpub(messages, meta = {}) {
   zip.folder('META-INF').file('container.xml', containerXml())
 
   const oebps = zip.folder('OEBPS')
-  oebps.file('content.opf', contentOpf({ id, title, author, coverExt, coverMime }))
+  oebps.file('content.opf', contentOpf({ id, title, author, coverFileName, coverMime }))
   oebps.file('toc.ncx', tocNcx({ id, title }))
   oebps.file('style.css', css)
-  if (coverExt) oebps.file(`cover.${coverExt}`, coverB64, { base64: true })
-  oebps.file('cover.xhtml', coverXhtml({
-    coverExt,
-    coverTitle: meta.coverTitle || title,
-    catchPhrase: meta.catchPhrase || '',
-    synopsis: meta.synopsis || '',
-  }))
+  oebps.file(coverFileName, coverB64, { base64: true })
+  oebps.file('cover.xhtml', coverXhtml({ coverFileName: meta.coverImage ? coverFileName : null, coverTitle, catchPhrase, synopsis }))
   oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml }))
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
   return blob
+}
+
+// ─── Canvas 표지 렌더링 (이미지 없을 때 cover.png 생성) ──────────
+
+async function renderCoverToPng({ coverTitle, catchPhrase, synopsis }, W = 600, H = 900) {
+  const canvas = document.createElement('canvas')
+  canvas.width = W
+  canvas.height = H
+  const ctx = canvas.getContext('2d')
+
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, W, H)
+
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+
+  let y = Math.round(H * 0.28)
+
+  if (coverTitle) {
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 52px Georgia, serif'
+    y = canvasWrapText(ctx, coverTitle, W / 2, y, W - 100, 66)
+    y += 18
+  }
+  if (catchPhrase) {
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'
+    ctx.font = '34px Georgia, serif'
+    y = canvasWrapText(ctx, catchPhrase, W / 2, y, W - 100, 50)
+    y += 14
+  }
+  if (synopsis) {
+    ctx.fillStyle = 'rgba(255,255,255,0.88)'
+    ctx.font = '28px serif'
+    ctx.textAlign = 'left'
+    canvasWrapText(ctx, synopsis, 60, y + 36, W - 120, 42)
+  }
+
+  return canvas.toDataURL('image/png')
+}
+
+function canvasWrapText(ctx, text, x, y, maxWidth, lineHeight) {
+  let curY = y
+  for (const paragraph of text.split('\n')) {
+    const words = paragraph.split(' ')
+    let line = ''
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, curY)
+        line = word
+        curY += lineHeight
+      } else {
+        line = test
+      }
+    }
+    if (line) { ctx.fillText(line, x, curY); curY += lineHeight }
+  }
+  return curY
 }
 
 /**
@@ -81,23 +143,22 @@ function containerXml() {
 </container>`
 }
 
-function contentOpf({ id, title, author, coverExt, coverMime }) {
-  const coverMeta = coverExt ? `\n    <meta name="cover" content="cover-image"/>` : ''
-  const coverImageManifest = coverExt
-    ? `\n    <item id="cover-image" href="cover.${coverExt}" media-type="${coverMime}" properties="cover-image"/>` : ''
+function contentOpf({ id, title, author, coverFileName, coverMime }) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="bookid">${id}</dc:identifier>
     <dc:title>${esc(title)}</dc:title>
     <dc:creator>${esc(author)}</dc:creator>
-    <dc:language>ko</dc:language>${coverMeta}
+    <dc:language>ko</dc:language>
+    <meta name="cover" content="cover-image"/>
   </metadata>
   <manifest>
     <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>
     <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
-    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>${coverImageManifest}
+    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    <item id="cover-image" href="${coverFileName}" media-type="${coverMime}" properties="cover-image"/>
   </manifest>
   <spine toc="ncx">
     <itemref idref="cover" linear="yes"/>
@@ -122,25 +183,13 @@ function tocNcx({ id, title }) {
 </ncx>`
 }
 
-function buildCoverBody({ imgSrc, coverTitle, catchPhrase, synopsis }) {
-  const titleHtml = coverTitle
-    ? `<h1 style="color:#fff;font-family:Georgia,serif;font-size:1.8em;font-weight:bold;letter-spacing:0.06em;margin:0 0 0.35em;line-height:1.4;">${esc(coverTitle)}</h1>`
-    : ''
+function coverXhtml({ coverFileName, coverTitle, catchPhrase, synopsis }) {
   const catchHtml = catchPhrase
-    ? `<p style="color:#fff;font-size:0.85em;font-weight:300;letter-spacing:0.05em;margin:0 0 0.5em;opacity:0.75;">${esc(catchPhrase)}</p>`
+    ? `<p style="color:#fff;font-size:0.85em;font-weight:300;letter-spacing:0.05em;line-height:1.8;margin:0 0 0.5em;opacity:0.75;">${esc(catchPhrase).replace(/\n/g, '<br/>')}</p>`
     : ''
   const synopsisHtml = synopsis
-    ? `<p style="color:#fff;font-size:0.8em;line-height:1.8;margin:1.2em 0 0;text-align:left;opacity:0.88;">${esc(synopsis)}</p>`
+    ? `<p style="color:#fff;font-size:0.8em;line-height:1.8;margin:1.2em 0 0;text-align:left;opacity:0.88;">${esc(synopsis).replace(/\n/g, '<br/>')}</p>`
     : ''
-  const textBlock = `<div style="padding:1.4em 1.8em;text-align:center;">${titleHtml}${catchHtml}${synopsisHtml}</div>`
-  if (imgSrc) {
-    return `<img src="${imgSrc}" alt="Cover" style="display:block;width:100%;max-height:58%;object-fit:cover;"/>${textBlock}`
-  }
-  return `<div style="display:table-cell;vertical-align:middle;">${textBlock}</div>`
-}
-
-function coverXhtml({ coverExt, coverTitle, catchPhrase, synopsis }) {
-  const body = buildCoverBody({ imgSrc: coverExt ? `cover.${coverExt}` : null, coverTitle, catchPhrase, synopsis })
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
@@ -148,20 +197,17 @@ function coverXhtml({ coverExt, coverTitle, catchPhrase, synopsis }) {
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
   <title>Cover</title>
   <style type="text/css">
-    html,body{margin:0;padding:0;width:100%;height:100%;background:#000;}
-    body{display:table;width:100%;height:100%;}
+    html,body{margin:0;padding:0;background:#000;}
   </style>
 </head>
-<body>${body}</body>
+<body>
+  ${coverFileName ? `<img src="${coverFileName}" alt="Cover" style="display:block;width:100%;"/>` : ''}
+  <div style="padding:1.4em 1.8em;text-align:center;">
+    <h1 style="color:#fff;font-family:Georgia,serif;font-size:1.8em;font-weight:bold;letter-spacing:0.06em;margin:0 0 0.35em;line-height:1.4;">${esc(coverTitle)}</h1>
+    ${catchHtml}${synopsisHtml}
+  </div>
+</body>
 </html>`
-}
-
-export function generateCoverPreviewHtml({ coverImage, coverTitle, catchPhrase, synopsis }) {
-  const body = buildCoverBody({ imgSrc: coverImage || null, coverTitle, catchPhrase, synopsis })
-  return `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="UTF-8"/>
-<style>html,body{margin:0;padding:0;width:100%;height:100%;background:#000;}${coverImage ? '' : 'body{display:table;width:100%;height:100%;}'}</style>
-</head><body>${body}</body></html>`
 }
 
 function chapterXhtml({ title, bodyHtml }) {

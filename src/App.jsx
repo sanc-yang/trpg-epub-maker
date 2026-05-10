@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
-import { generateEpub, generatePreviewHtml, generateCoverPreviewHtml } from './utils/generateEpub'
+import { generateEpub, generatePreviewHtml } from './utils/generateEpub'
 import './App.css'
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])
@@ -65,6 +65,39 @@ const INP = { width: '100%', padding: '7px 10px', borderRadius: 4, border: '1px 
 const LBL = { fontSize: '0.8em', color: '#888', marginBottom: 4, display: 'block' }
 const FIELD = { marginBottom: 12 }
 
+// ─── 표지 미리보기 컴포넌트 ─────────────────────────────────────
+function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
+  return (
+    <div style={{
+      width: 140, height: 210, background: '#000', overflow: 'hidden', borderRadius: 4,
+      display: 'flex', flexDirection: 'column',
+      justifyContent: coverImage ? 'flex-start' : 'center',
+      fontSize: 10,
+    }}>
+      {coverImage && (
+        <img src={coverImage} alt="" style={{ display: 'block', width: '100%', maxHeight: '58%', objectFit: 'cover', flexShrink: 0 }} />
+      )}
+      <div style={{ padding: '1em 1.2em', textAlign: 'center' }}>
+        {coverTitle && (
+          <div style={{ color: '#fff', fontFamily: 'Georgia, serif', fontSize: '1.4em', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '0.35em', lineHeight: 1.4 }}>
+            {coverTitle}
+          </div>
+        )}
+        {catchPhrase && (
+          <div style={{ color: '#fff', fontSize: '1.1em', fontWeight: 300, letterSpacing: '0.05em', lineHeight: 1.8, marginBottom: '0.3em', opacity: 0.75, whiteSpace: 'pre-line' }}>
+            {catchPhrase}
+          </div>
+        )}
+        {synopsis && (
+          <div style={{ color: '#fff', fontSize: '0.95em', lineHeight: 1.8, marginTop: '0.8em', textAlign: 'left', opacity: 0.88, whiteSpace: 'pre-line' }}>
+            {synopsis}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── 토글 버튼 공통 스타일 ───────────────────────────────────────
 function ToggleBtn({ active, onClick, children }) {
   return (
@@ -91,7 +124,7 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false)
   const [stats, setStats] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [includeSadam, setIncludeSadam] = useState(false)
+  const [includeSadam, setIncludeSadam] = useState(true)
 
   // 메타데이터 / 표지
   const [title, setTitle] = useState('')
@@ -274,7 +307,13 @@ export default function App() {
               {/* 캐치프레이즈 */}
               <div style={FIELD}>
                 <label style={LBL}>캐치프레이즈 <span style={{ opacity: 0.6 }}>(선택)</span></label>
-                <input value={catchPhrase} onChange={e => setCatchPhrase(e.target.value)} placeholder="짧은 한 줄 문구" style={INP} />
+                <textarea
+                  value={catchPhrase}
+                  onChange={e => setCatchPhrase(e.target.value)}
+                  placeholder="짧은 한 줄 문구"
+                  rows={2}
+                  style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }}
+                />
               </div>
 
               {/* 개요 */}
@@ -292,13 +331,7 @@ export default function App() {
 
             {/* 표지 미리보기 */}
             <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 140, height: 210, overflow: 'hidden', border: '1px solid #ccc', borderRadius: 4, background: '#000' }}>
-                <iframe
-                  srcDoc={generateCoverPreviewHtml({ coverImage, coverTitle: title, catchPhrase, synopsis })}
-                  style={{ width: 280, height: 420, border: 'none', transform: 'scale(0.5)', transformOrigin: 'top left' }}
-                  title="표지 미리보기"
-                />
-              </div>
+              <CoverPreview coverImage={coverImage} coverTitle={title} catchPhrase={catchPhrase} synopsis={synopsis} />
               <span style={{ fontSize: '0.75em', color: '#aaa' }}>표지 미리보기</span>
             </div>
           </div>
