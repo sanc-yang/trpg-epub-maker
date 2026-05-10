@@ -21,74 +21,11 @@ const TYPE_COLOR = {
   emote: '#fff8e0',
 }
 
-const SUCCESS_BAR_COLOR = {
-  '대성공':    '#a5d6a7',  // 연한 녹색
-  '어려운 성공': '#388e3c', // 중간 녹색
-  '성공':      '#1e7e34',  // 진한 녹색
-  '실패':      '#c62828',  // 중간 빨강
-  '대실패':    '#7b0000',  // 진한 빨강
-}
-
-function RollBlock({ roll }) {
-  const barColor = SUCCESS_BAR_COLOR[roll.successLevel] || '#555'
-
-  return (
-    <div style={{
-      background: '#000',
-      border: '1px solid #e5d280',
-      borderRadius: 2,
-      padding: '6px',
-      margin: '6px 0',
-      fontFamily: '"Droid Serif", "Georgia", serif',
-      color: '#fff',
-      textAlign: 'center',
-      maxWidth: 480,
-    }}>
-      {/* 캐릭터명 */}
-      <div style={{ fontSize: '0.72em', color: '#ccc', letterSpacing: '0.15em', marginBottom: 1 }}>
-        {roll.character}
-      </div>
-      {/* 기능명 */}
-      <div style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#e5d280', marginBottom: 1 }}>
-        {roll.skill}
-      </div>
-      {/* 난이도 */}
-      <div style={{ fontSize: '0.8em', color: '#fff', marginBottom: 3 }}>
-        보통
-      </div>
-      {/* 성공 정도 바 */}
-      <div style={{
-        background: barColor,
-        padding: '2px 0',
-        fontWeight: 'bold',
-        fontSize: '0.95em',
-        letterSpacing: '0.1em',
-        marginBottom: 4,
-      }}>
-        {roll.successLevel}
-      </div>
-      {/* 주사위 값 */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 24,
-        fontSize: '1.6em',
-        fontWeight: 'bold',
-        padding: '2px 0 4px',
-      }}>
-        <span>{roll.rollValue}</span>
-        <span style={{ fontSize: '0.5em', color: '#aaa' }}>vs.</span>
-        <span>{roll.skillValue}</span>
-      </div>
-    </div>
-  )
-}
 
 function MessageRow({ msg }) {
   if (msg.type === 'template') {
     return (
-      <div style={{ padding: '6px 10px', marginBottom: '2px' }}>
+      <div style={{ padding: '6px 10px', margin: '12px 0' }}>
         {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
         <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
       </div>
@@ -111,17 +48,15 @@ function MessageRow({ msg }) {
   return (
     <div style={{
       background: bg,
-      opacity: isSadam ? 0.55 : 1,
-      borderLeft: `3px solid ${isSadam ? '#aaa' : 'transparent'}`,
+      opacity: isSadam ? 0.5 : 1,
+      fontSize: isSadam ? '0.9em' : '1em',
       padding: '6px 10px',
       marginBottom: '2px',
-      fontSize: isSadam ? '0.85em' : '1em',
       textAlign: isCentered ? 'center' : 'left',
     }}>
       {msg.speaker && (
         <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>
       )}
-      {msg.roll && <RollBlock roll={msg.roll} />}
       {msg.content && (
         <span
           style={{

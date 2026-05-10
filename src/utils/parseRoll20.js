@@ -4,23 +4,12 @@
  * 반환 메시지 객체 스펙:
  * {
  *   id        : string   — Roll20 data-messageid
- *   type      : 'general' | 'hidden' | 'emote' | 'desc'
- *                 - general : 플레이어/GM 대사
- *                 - hidden  : 귓속말 (GM에게만 보이는 메시지)
- *                 - desc    : GM 일반 지문 (장면 묘사, 내레이션)
- *                 - emote   : GM 특수 지문 (판정 요청, 특수 상황 강조 등)
- *   isSadam   : boolean  — true면 OOC 사담 (회색 텍스트). general/hidden에만 해당.
+ *   type      : 'general' | 'hidden' | 'emote' | 'desc' | 'template' | 'rollresult'
+ *   isSadam   : boolean  — OOC 사담 여부. general/hidden에만 해당.
  *   isYou     : boolean  — 파일 저장자 본인 메시지 여부
- *   speaker   : string   — 발언자 이름 (':::' = GM 시스템 메시지, '' = 없음)
- *   content   : string   — 대사/텍스트 본문 (roll이 있을 경우 빈 문자열일 수 있음)
+ *   speaker   : string   — 발언자 이름 ('' = 없음)
+ *   content   : string   — 대사/텍스트 본문 (sanitized HTML)
  *   timestamp : string   — "October 31, 2023 9:32PM" 형식. 연속 메시지는 직전 값 상속.
- *   roll      : null | {  — CoC 7th 판정 블록. 없으면 null.
- *     character    : string  — 판정 캐릭터명
- *     skill        : string  — 판정 기능명
- *     successLevel : string  — 대성공 / 어려운 성공 / 성공 / 실패 / 대실패
- *     rollValue    : number  — 내가 낸 주사위 값
- *     skillValue   : number  — 기능치
- *   }
  * }
  */
 export async function parseRoll20Html(htmlString, localImageMap = {}) {
@@ -59,41 +48,33 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
       const isHidden = classList.contains('hidden-message');
       const isYou = classList.contains('you');
 
-      // 사담 판별: 내부에 color #aaaaaa 스타일 span이 있으면 OOC
-      const isSadam = !!el.querySelector('span[style*="#aaaaaa"]');
+      // 사담 판별: 내부에 회색 계열 color 스타일이 있으면 OOC
+      const GRAY_RE = /color\s*:\s*(#(?:888|999|aaa|bbb|ccc|888888|999999|aaaaaa|bbbbbb|cccccc)|gray|grey)\b/i;
+      const isSadam = [...el.querySelectorAll('[style*="color"]')].some(
+        n => GRAY_RE.test(n.getAttribute('style') || '')
+      );
 
-      // CoC 7th 판정 블록 감지
-      const rollEl = el.querySelector('.sheet-rolltemplate-callofcthulhu');
-      const roll = rollEl ? parseCoCRoll(rollEl) : null;
-
-      // 기타 롤 템플릿 감지 (non-CoC)
-      if (!roll) {
-        let foundTemplate = false;
-        for (const e of el.querySelectorAll('[class]')) {
-          const cls = [...e.classList].find(c => c.startsWith('sheet-rolltemplate-'));
-          if (cls) {
-            messages.push({
-              id, type: 'template', templateClass: cls,
-              templateHtml: templateNodeToHtml(e),
-              isSadam: false, isYou,
-              speaker: speaker !== null ? speaker : lastSpeaker,
-              content: '', timestamp, roll: null,
-            });
-            foundTemplate = true;
-            break;
-          }
+      // 롤 템플릿 감지 (CoC 포함 모든 sheet-rolltemplate-*)
+      let foundTemplate = false;
+      for (const e of el.querySelectorAll('[class]')) {
+        const cls = [...e.classList].find(c => c.startsWith('sheet-rolltemplate-'));
+        if (cls) {
+          messages.push({
+            id, type: 'template', templateClass: cls,
+            templateHtml: templateNodeToHtml(e),
+            isSadam: false, isYou,
+            speaker: speaker !== null ? speaker : lastSpeaker,
+            content: '', timestamp,
+          });
+          foundTemplate = true;
+          break;
         }
-        if (foundTemplate) continue;
       }
+      if (foundTemplate) continue;
 
-      // 본문 추출 (inlinerollresult span HTML 보존)
+      // 본문 추출
       let content = '';
-      if (roll) {
-        const clone = el.cloneNode(true);
-        clone.querySelector('.sheet-rolltemplate-callofcthulhu')?.remove();
-        const byClone = clone.querySelector('.by');
-        if (byClone) content = siblingsToHtml(byClone.nextSibling);
-      } else if (byEl) {
+      if (byEl) {
         content = siblingsToHtml(byEl.nextSibling);
       } else {
         // 연속 메시지: avatar/tstamp 제외하고 HTML 추출
@@ -106,7 +87,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
         content = parts.join('').trim();
       }
 
-      if (content === 'This message has been hidden.' && !roll) continue;
+      if (content === 'This message has been hidden.') continue;
 
       messages.push({
         id,
@@ -114,9 +95,8 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
         isSadam,
         isYou,
         speaker: speaker !== null ? speaker : lastSpeaker,
-        content,
+        content: isSadam ? stripInlineColor(content) : content,
         timestamp,
-        roll,
       });
 
     } else if (classList.contains('desc')) {
@@ -186,39 +166,6 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
   return { messages, templateCss };
 }
 
-/**
- * CoC 7th 판정 블록 파싱
- * - h3의 failure div 유무로 성공/실패 판정
- * - 성공 레벨은 roll ÷ skill 계산으로 도출 (HTML에 명시되지 않음)
- */
-function parseCoCRoll(rollEl) {
-  const character = rollEl.querySelector('h2')?.textContent?.trim() || '';
-  const skill = rollEl.querySelector('h1')?.textContent?.trim() || '';
-
-  const isFailed = !!rollEl.querySelector('.sheet-coc-roll__failure');
-
-  // 주사위 값 추출: 첫 번째 = roll, 두 번째 = skill값
-  const rollSpans = rollEl.querySelectorAll('.sheet-coc-roll__roll .inlinerollresult');
-  const rollValue = parseInt(rollSpans[0]?.textContent || '0', 10);
-  const skillValue = parseInt(rollSpans[1]?.textContent || '0', 10);
-
-  let successLevel;
-  if (isFailed) {
-    // 대실패: skill < 50이면 96~100, skill >= 50이면 100
-    const isFumble = skillValue < 50 ? rollValue >= 96 : rollValue === 100;
-    successLevel = isFumble ? '대실패' : '실패';
-  } else {
-    if (rollValue <= Math.floor(skillValue / 5)) {
-      successLevel = '대성공';
-    } else if (rollValue <= Math.floor(skillValue / 2)) {
-      successLevel = '어려운 성공';
-    } else {
-      successLevel = '성공';
-    }
-  }
-
-  return { character, skill, successLevel, rollValue, skillValue };
-}
 
 /**
  * 메시지 내 img src를 fetch하여 base64 data URL로 치환 (아바타 제외)
@@ -266,9 +213,8 @@ function blobToDataUrl(blob) {
  * Roll20 <style> 블록에서 .sheet-rolltemplate-* 관련 CSS 규칙만 추출
  */
 function extractTemplateCss(doc) {
-  const styleEl = doc.querySelector('style');
-  if (!styleEl) return '';
-  const css = styleEl.textContent;
+  const css = [...doc.querySelectorAll('style')].map(el => el.textContent).join('\n');
+  if (!css) return '';
   const result = [];
   let depth = 0;
   let blockStart = 0;
@@ -283,7 +229,21 @@ function extractTemplateCss(doc) {
       }
     }
   }
-  return result.join('\n');
+  return pxFontSizeToEm(result.join('\n'));
+}
+
+function stripInlineColor(html) {
+  return html.replace(/\bcolor\s*:[^;}"']+;?/gi, '');
+}
+
+function pxFontSizeToEm(css) {
+  return css.replace(
+    /font-size\s*:\s*(\d+(?:\.\d+)?)px/gi,
+    (_, px) => {
+      const em = (parseFloat(px) / 16).toFixed(4).replace(/\.?0+$/, '');
+      return `font-size: ${em}em`;
+    }
+  );
 }
 
 const TEMPLATE_VOID_TAGS = new Set(['br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr']);
@@ -303,7 +263,10 @@ function templateNodeToHtml(node) {
       .filter(a => !TEMPLATE_SKIP_ATTRS.has(a.name))
       .map(a => `${a.name}="${(a.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
       .join(' ');
-    if (TEMPLATE_VOID_TAGS.has(tag)) return `<${tag}${attrs ? ' ' + attrs : ''} />`;
+    if (TEMPLATE_VOID_TAGS.has(tag)) {
+      const errorAttr = tag === 'img' ? ` onerror="this.style.display='none'"` : '';
+      return `<${tag}${attrs ? ' ' + attrs : ''}${errorAttr} />`;
+    }
     const inner = Array.from(node.childNodes).map(templateNodeToHtml).join('');
     return `<${tag}${attrs ? ' ' + attrs : ''}>${inner}</${tag}>`;
   }
@@ -317,10 +280,7 @@ function escHtml(str) {
     .replace(/>/g, '&gt;')
 }
 
-// Roll20 원본 inline style을 보존해야 하는 클래스
-const STYLED_ROLL_CLASSES = ['inlinerollresult', 'basicdiceroll', 'diceresult', 'diceroll'];
-
-// 노드 하나를 HTML 문자열로 변환. dice 관련 요소는 원본 style 그대로 보존.
+// 노드 하나를 HTML 문자열로 변환. 모든 엘리먼트 구조와 inline style 그대로 보존.
 function nodeToHtml(node) {
   if (node.nodeType === Node.TEXT_NODE) return escHtml(node.textContent);
   if (node.nodeType === Node.ELEMENT_NODE) {
@@ -342,19 +302,18 @@ function nodeToHtml(node) {
       const src = (node.getAttribute('src') || '').replace(/"/g, '&quot;');
       const alt = escHtml(node.getAttribute('alt') || '');
       const style = (node.getAttribute('style') || '').replace(/"/g, '&quot;');
-      return `<img src="${src}" alt="${alt}"${style ? ` style="${style}"` : ''} />`;
+      return `<img src="${src}" alt="${alt}"${style ? ` style="${style}"` : ''} onerror="this.style.display='none'" />`;
     }
-    const isRollEl = STYLED_ROLL_CLASSES.some(cls => node.classList.contains(cls));
-    if (isRollEl) {
-      let style = (node.getAttribute('style') || '').replace(/"/g, '&quot;');
-      // inlinerollresult에 inline style이 없으면 Roll20 기본 스타일 폴백
-      if (node.classList.contains('inlinerollresult') && !style) {
-        style = 'background-color:#FEF68E;border:2px solid #FEF68E;font-weight:bold;padding:0 2px;';
-      }
+    // inlinerollresult에 inline style이 없으면 Roll20 기본 스타일 폴백
+    if (node.classList.contains('inlinerollresult') && !node.getAttribute('style')) {
       const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
-      return `<span style="${style}">${inner}</span>`;
+      return `<span style="background-color:#FEF68E;border:2px solid #FEF68E;font-weight:bold;padding:0 2px;">${inner}</span>`;
     }
-    return Array.from(node.childNodes).map(nodeToHtml).join('');
+    const tag = node.tagName.toLowerCase();
+    const style = node.getAttribute('style');
+    const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+    const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
+    return `<${tag}${styleAttr}>${inner}</${tag}>`;
   }
   return '';
 }

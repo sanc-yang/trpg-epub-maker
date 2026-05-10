@@ -127,12 +127,6 @@ function messagesToHtml(messages, includeSadam) {
   for (const msg of messages) {
     if (msg.isSadam && !includeSadam) continue
 
-    if (msg.roll) {
-      breakGroup()
-      parts.push(rollToHtml(msg))
-      continue
-    }
-
     if (msg.type === 'template') {
       const speaker = msg.speaker || ''
       const isSameGroup = speaker && speaker === lastGroup.speaker
@@ -140,7 +134,7 @@ function messagesToHtml(messages, includeSadam) {
         if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
         lastGroup = { speaker, type: 'template' }
       }
-      parts.push(msg.templateHtml)
+      parts.push(`<div style="margin:1em 0">${msg.templateHtml}</div>`)
       continue
     }
 
@@ -192,23 +186,6 @@ function messagesToHtml(messages, includeSadam) {
   return parts.join('\n')
 }
 
-function rollToHtml(msg) {
-  const r = msg.roll
-  const levelClass = {
-    '대성공': 'roll-extreme-success',
-    '어려운 성공': 'roll-hard-success',
-    '성공': 'roll-success',
-    '실패': 'roll-failure',
-    '대실패': 'roll-fumble',
-  }[r.successLevel] || 'roll-success'
-
-  return `<div class="roll-block">
-  <p class="roll-character">${esc(r.character)}</p>
-  <p class="roll-skill">${esc(r.skill)}</p>
-  <p class="roll-level ${levelClass}">${esc(r.successLevel)}</p>
-  <p class="roll-dice">${r.rollValue} <span class="roll-vs">vs.</span> ${r.skillValue}</p>
-</div>`
-}
 
 function esc(str) {
   return (str || '')
@@ -259,31 +236,9 @@ p.whisper {
   font-style: italic;
 }
 
-p.sadam-name { color: #888; font-size: 0.88em; }
-p.sadam { margin-left: 0; color: #888; font-size: 0.88em; }
+p.sadam-name { opacity: 0.5; font-size: 0.9em; }
+p.sadam { opacity: 0.5; font-size: 0.9em; }
 
-div.roll-block {
-  border: 1px solid #c8b96e !important;
-  border-left: 4px solid #c8b96e !important;
-  background: #1a1a1a !important;
-  color: #fff !important;
-  margin: 1em auto;
-  padding: 0.6em 1em;
-  max-width: 24em;
-  text-align: center !important;
-  font-family: Georgia, "Droid Serif", serif !important;
-}
-
-p.roll-character { font-size: 0.75em; color: #bbb !important; letter-spacing: 0.15em; margin: 0; background: transparent !important; }
-p.roll-skill { font-size: 1.1em; font-weight: bold; color: #e5d280 !important; margin: 0.05em 0; background: transparent !important; }
-p.roll-level { font-weight: bold !important; font-size: 0.95em; letter-spacing: 0.1em; padding: 0.1em 0; margin: 0.15em 0; background: transparent !important; }
-.roll-extreme-success { color: #81c784 !important; }
-.roll-hard-success    { color: #4caf50 !important; }
-.roll-success         { color: #2e7d32 !important; }
-.roll-failure         { color: #e57373 !important; }
-.roll-fumble          { color: #b71c1c !important; }
-p.roll-dice { font-size: 1.5em; font-weight: bold !important; color: #fff !important; margin: 0.1em 0 0; background: transparent !important; }
-span.roll-vs { font-size: 0.5em; color: #aaa !important; margin: 0 0.4em; }
 
 p.roll-formula { font-size: 0.85em; color: #555; margin: 0 0 0.2em; }
 div.roll-formatted { margin: 0.2em 0; }
