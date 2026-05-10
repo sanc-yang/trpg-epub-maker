@@ -1,7 +1,11 @@
 import { useState, useCallback } from 'react'
+import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { generateEpub, generatePreviewHtml } from './utils/generateEpub'
 import './App.css'
+
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])
+const MIME_MAP = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' }
 
 const TYPE_LABEL = {
   general: '대사',
@@ -82,6 +86,24 @@ function RollBlock({ roll }) {
 }
 
 function MessageRow({ msg }) {
+  if (msg.type === 'template') {
+    return (
+      <div style={{ padding: '6px 10px', marginBottom: '2px' }}>
+        {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
+        <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
+      </div>
+    )
+  }
+  if (msg.type === 'rollresult') {
+    return (
+      <div style={{ background: TYPE_COLOR.general, padding: '6px 10px', marginBottom: '2px' }}>
+        {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
+        {msg.formula && <div style={{ fontSize: '0.85em', color: '#666' }}>{msg.formula}</div>}
+        {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
+        {msg.rolled && <div style={{ fontWeight: 'bold' }}>= {msg.rolled}</div>}
+      </div>
+    )
+  }
   const bg = TYPE_COLOR[msg.type] || '#fff'
   const isSadam = msg.isSadam
   const isCentered = msg.type === 'desc' || msg.type === 'emote'
@@ -101,12 +123,13 @@ function MessageRow({ msg }) {
       )}
       {msg.roll && <RollBlock roll={msg.roll} />}
       {msg.content && (
-        <span style={{
-          fontStyle: msg.type === 'emote' ? 'italic' : 'normal',
-          fontWeight: msg.type === 'emote' || msg.type === 'desc' ? 'bold' : 'normal',
-        }}>
-          {msg.content}
-        </span>
+        <span
+          style={{
+            fontStyle: msg.type === 'emote' ? 'italic' : 'normal',
+            fontWeight: msg.type === 'emote' || msg.type === 'desc' ? 'bold' : 'normal',
+          }}
+          dangerouslySetInnerHTML={{ __html: msg.content }}
+        />
       )}
     </div>
   )
@@ -114,6 +137,7 @@ function MessageRow({ msg }) {
 
 export default function App() {
   const [messages, setMessages] = useState([])
+  const [templateCss, setTemplateCss] = useState('')
   const [fileName, setFileName] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [stats, setStats] = useState(null)
@@ -121,25 +145,68 @@ export default function App() {
   const [includeSadam, setIncludeSadam] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
-  const handleFile = useCallback((file) => {
-    if (!file || !file.name.endsWith('.html')) return
-    setFileName(file.name)
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const parsed = parseRoll20Html(e.target.result)
-      setMessages(parsed)
-      setStats({
-        total: parsed.length,
-        general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
-        sadam: parsed.filter(m => m.isSadam).length,
-        hidden: parsed.filter(m => m.type === 'hidden').length,
-        desc: parsed.filter(m => m.type === 'desc').length,
-        emote: parsed.filter(m => m.type === 'emote').length,
-      })
-    }
-    reader.readAsText(file, 'utf-8')
+  const processHtml = useCallback(async (htmlText, name, localImageMap) => {
+    setFileName(name)
+    const { messages: parsed, templateCss: css } = await parseRoll20Html(htmlText, localImageMap)
+    setMessages(parsed)
+    setTemplateCss(css)
+    setStats({
+      total: parsed.length,
+      general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
+      sadam: parsed.filter(m => m.isSadam).length,
+      hidden: parsed.filter(m => m.type === 'hidden').length,
+      desc: parsed.filter(m => m.type === 'desc').length,
+      emote: parsed.filter(m => m.type === 'emote').length,
+      template: parsed.filter(m => m.type === 'template').length,
+    })
   }, [])
+
+  const handleFile = useCallback((file) => {
+    if (!file) return
+
+    if (file.name.endsWith('.zip')) {
+      file.arrayBuffer().then(async (buffer) => {
+        const zip = await JSZip.loadAsync(buffer)
+
+        // 루트 레벨 HTML 파일 탐색
+        let htmlText = null
+        let htmlName = ''
+        for (const [path, entry] of Object.entries(zip.files)) {
+          if (!entry.dir && path.endsWith('.html') && !path.includes('/')) {
+            htmlText = await entry.async('text')
+            htmlName = path
+            break
+          }
+        }
+        if (!htmlText) { alert('ZIP에서 HTML 로그 파일을 찾을 수 없습니다.'); return }
+
+        // 이미지 파일 → base64 맵 빌드
+        const localImageMap = {}
+        await Promise.all(
+          Object.entries(zip.files)
+            .filter(([path, entry]) => {
+              if (entry.dir) return false
+              const ext = path.split('.').pop().toLowerCase()
+              return IMAGE_EXTS.has(ext)
+            })
+            .map(async ([path, entry]) => {
+              const ext = path.split('.').pop().toLowerCase()
+              const mime = MIME_MAP[ext] || 'image/png'
+              const b64 = await entry.async('base64')
+              localImageMap[path] = `data:${mime};base64,${b64}`
+            })
+        )
+
+        await processHtml(htmlText, htmlName, localImageMap)
+      })
+      return
+    }
+
+    if (!file.name.endsWith('.html')) return
+    const reader = new FileReader()
+    reader.onload = async (e) => { await processHtml(e.target.result, file.name, {}) }
+    reader.readAsText(file, 'utf-8')
+  }, [processHtml])
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
@@ -158,7 +225,7 @@ export default function App() {
     setIsGenerating(true)
     try {
       const baseName = fileName.replace(/\.html$/i, '')
-      const blob = await generateEpub(messages, { title: baseName, includeSadam })
+      const blob = await generateEpub(messages, { title: baseName, includeSadam, templateCss })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -168,10 +235,11 @@ export default function App() {
     } finally {
       setIsGenerating(false)
     }
-  }, [messages, fileName, isGenerating, includeSadam])
+  }, [messages, fileName, isGenerating, includeSadam, templateCss])
 
   return (
     <div style={{ fontFamily: 'sans-serif', maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      {templateCss && <style>{templateCss}</style>}
       <h1 style={{ fontSize: '1.4em', marginBottom: 4 }}>TRPG EPUB Maker — 파싱 테스트</h1>
       <p style={{ color: '#666', marginBottom: 20 }}>Roll20 아카이브 HTML 파일을 드래그앤드롭하거나 선택하세요.</p>
 
@@ -195,13 +263,13 @@ export default function App() {
         <input
           id="fileInput"
           type="file"
-          accept=".html"
+          accept=".html,.zip"
           style={{ display: 'none' }}
           onChange={onInputChange}
         />
         {fileName
           ? <span style={{ color: '#4a90e2', fontWeight: 'bold' }}>📄 {fileName}</span>
-          : <span style={{ color: '#aaa' }}>HTML 파일을 여기에 드롭하거나 클릭해서 선택</span>
+          : <span style={{ color: '#aaa' }}>HTML 또는 ZIP 파일을 여기에 드롭하거나 클릭해서 선택</span>
         }
       </div>
 
@@ -282,6 +350,7 @@ export default function App() {
             srcDoc={generatePreviewHtml(messages, {
               title: fileName.replace(/\.html$/i, ''),
               includeSadam,
+              templateCss,
             })}
             style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
             title="EPUB 미리보기"

@@ -11,6 +11,7 @@ export async function generateEpub(messages, meta = {}) {
   const author = meta.author || ''
   const includeSadam = meta.includeSadam ?? false
   const id = `trpg-${Date.now()}`
+  const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
 
   const bodyHtml = messagesToHtml(messages, includeSadam)
 
@@ -25,7 +26,7 @@ export async function generateEpub(messages, meta = {}) {
   const oebps = zip.folder('OEBPS')
   oebps.file('content.opf', contentOpf({ id, title, author }))
   oebps.file('toc.ncx', tocNcx({ id, title }))
-  oebps.file('style.css', epubCss)
+  oebps.file('style.css', css)
   oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml }))
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
@@ -38,13 +39,14 @@ export async function generateEpub(messages, meta = {}) {
 export function generatePreviewHtml(messages, meta = {}) {
   const title = meta.title || 'TRPG 세션 로그'
   const includeSadam = meta.includeSadam ?? false
+  const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
   const bodyHtml = messagesToHtml(messages, includeSadam)
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8"/>
 <title>${esc(title)}</title>
-<style>${epubCss}</style>
+<style>${css}</style>
 </head>
 <body>
 ${bodyHtml}
@@ -131,14 +133,39 @@ function messagesToHtml(messages, includeSadam) {
       continue
     }
 
+    if (msg.type === 'template') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker
+      if (!isSameGroup) {
+        if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
+        lastGroup = { speaker, type: 'template' }
+      }
+      parts.push(msg.templateHtml)
+      continue
+    }
+
     if (msg.type === 'desc') {
       breakGroup()
-      parts.push(`<p class="desc">${esc(msg.content)}</p>`)
+      parts.push(`<p class="desc">${msg.content}</p>`)
       continue
     }
     if (msg.type === 'emote') {
       breakGroup()
-      parts.push(`<p class="emote">${esc(msg.content)}</p>`)
+      parts.push(`<p class="emote">${msg.content}</p>`)
+      continue
+    }
+
+    // rollresult (인라인 주사위) — speaker-group에 참여
+    if (msg.type === 'rollresult') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker
+      if (!isSameGroup) {
+        if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
+        lastGroup = { speaker, type: 'rollresult' }
+      }
+      if (msg.formula) parts.push(`<p class="roll-formula">${esc(msg.formula)}</p>`)
+      if (msg.formattedHtml) parts.push(`<div class="roll-formatted">${msg.formattedHtml}</div>`)
+      if (msg.rolled) parts.push(`<p class="roll-total">= ${esc(msg.rolled)}</p>`)
       continue
     }
 
@@ -157,7 +184,8 @@ function messagesToHtml(messages, includeSadam) {
     }
 
     if (msg.content) {
-      parts.push(`<p class="${cls}">${esc(msg.content)}</p>`)
+      // content는 이미 sanitized HTML (inlinerollresult 보존됨)
+      parts.push(`<p class="${cls}">${msg.content}</p>`)
     }
   }
 
@@ -256,4 +284,8 @@ p.roll-level { font-weight: bold !important; font-size: 0.95em; letter-spacing: 
 .roll-fumble          { color: #b71c1c !important; }
 p.roll-dice { font-size: 1.5em; font-weight: bold !important; color: #fff !important; margin: 0.1em 0 0; background: transparent !important; }
 span.roll-vs { font-size: 0.5em; color: #aaa !important; margin: 0 0.4em; }
+
+p.roll-formula { font-size: 0.85em; color: #555; margin: 0 0 0.2em; }
+div.roll-formatted { margin: 0.2em 0; }
+p.roll-total { font-weight: bold; font-size: 1.05em; margin: 0.1em 0 0; }
 `
