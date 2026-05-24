@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
+import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
 import { generateEpub, generatePreviewHtml } from './utils/generateEpub'
 import './App.css'
 
@@ -14,48 +15,93 @@ const TYPE_COLOR = {
   emote: '#fff8e0',
 }
 
-// ─── 메시지 행 컴포넌트 ──────────────────────────────────────────
-function MessageRow({ msg }) {
-  if (msg.type === 'template') {
+// ─── Roll20 스타일 메시지 행 ─────────────────────────────────────
+const AVATAR_SIZE = 36
+
+function MessageRow({ msg, isContinuation }) {
+  const isCentered = msg.type === 'desc' || msg.type === 'emote'
+
+  // desc / emote: 아바타 없이 원래 스타일 유지
+  if (isCentered) {
+    const isDesc = msg.type === 'desc'
     return (
-      <div style={{ padding: '6px 10px', margin: '12px 0' }}>
-        {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
-        <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
+      <div style={{
+        background: isDesc ? 'rgba(0,0,0,0.04)' : (TYPE_COLOR[msg.type] || '#fff'),
+        padding: '6px 10px 6px ' + (AVATAR_SIZE + 18) + 'px',
+        marginBottom: 1,
+        textAlign: 'center',
+        color: isDesc ? '#000' : undefined,
+      }}>
+        {msg.content && (
+          <span style={{ fontStyle: msg.type === 'emote' ? 'italic' : 'normal', fontWeight: 'bold' }}
+            dangerouslySetInnerHTML={{ __html: msg.content }} />
+        )}
       </div>
     )
   }
-  if (msg.type === 'rollresult') {
-    return (
-      <div style={{ background: TYPE_COLOR.general, padding: '6px 10px', marginBottom: '2px' }}>
-        {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
-        {msg.formula && <div style={{ fontSize: '0.85em', color: '#666' }}>{msg.formula}</div>}
-        {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
-        {msg.rolled && <div style={{ fontWeight: 'bold' }}>= {msg.rolled}</div>}
-      </div>
-    )
-  }
+
   const bg = TYPE_COLOR[msg.type] || '#fff'
   const isSadam = msg.isSadam
-  const isCentered = msg.type === 'desc' || msg.type === 'emote'
+
+  const contentBlock = (
+    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+      {!isContinuation && msg.speaker && (
+        <div style={{ fontWeight: 'bold', fontSize: '0.85em', marginBottom: 2, color: '#333' }}>
+          {msg.speaker}
+        </div>
+      )}
+      {msg.type === 'template' && (
+        <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
+      )}
+      {msg.type === 'rollresult' && (
+        <>
+          {msg.formula && <div style={{ fontSize: '0.82em', color: '#666' }}>{msg.formula}</div>}
+          {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
+          {msg.rolled && <div style={{ fontWeight: 'bold' }}>= {msg.rolled}</div>}
+        </>
+      )}
+      {msg.content && msg.type !== 'template' && msg.type !== 'rollresult' && (
+        <span dangerouslySetInnerHTML={{ __html: msg.content }} />
+      )}
+    </div>
+  )
+
+  // 사담: 아바타 컬럼 없이 들여쓰기만
+  if (isSadam) {
+    return (
+      <div style={{
+        padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${AVATAR_SIZE + 18}px`,
+        background: 'rgba(0,0,0,0.04)',
+        opacity: 0.75,
+        fontSize: '0.9em',
+        borderBottom: isContinuation ? 'none' : '1px solid rgba(0,0,0,0.06)',
+      }}>
+        {contentBlock}
+      </div>
+    )
+  }
+
+  // 일반: 아바타 컬럼 있음, iconUrl 없으면 빈 공간만
   return (
     <div style={{
+      display: 'flex',
+      gap: 10,
+      padding: isContinuation ? '2px 10px' : '6px 10px',
       background: bg,
-      opacity: isSadam ? 0.5 : 1,
-      fontSize: isSadam ? '0.9em' : '1em',
-      padding: '6px 10px',
-      marginBottom: '2px',
-      textAlign: isCentered ? 'center' : 'left',
+      borderBottom: isContinuation ? 'none' : '1px solid rgba(0,0,0,0.06)',
     }}>
-      {msg.speaker && <strong style={{ marginRight: 6 }}>{msg.speaker}:</strong>}
-      {msg.content && (
-        <span
-          style={{
-            fontStyle: msg.type === 'emote' ? 'italic' : 'normal',
-            fontWeight: msg.type === 'emote' || msg.type === 'desc' ? 'bold' : 'normal',
-          }}
-          dangerouslySetInnerHTML={{ __html: msg.content }}
-        />
-      )}
+      <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
+        {!isContinuation && msg.iconUrl && (
+          <div style={{
+            width: AVATAR_SIZE, height: AVATAR_SIZE,
+            borderRadius: 900, overflow: 'hidden',
+            background: '#d8d8d8',
+          }}>
+            <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+          </div>
+        )}
+      </div>
+      {contentBlock}
     </div>
   )
 }
@@ -98,17 +144,77 @@ function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
   )
 }
 
+// ─── 코코포리아 스타일 메시지 행 ─────────────────────────────────
+function CcfoliaMessageRow({ msg, isContinuation }) {
+  const AVATAR_W = 44
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 10,
+      padding: isContinuation ? '2px 14px' : '10px 14px 6px',
+      background: msg.isSadam ? 'rgba(255,255,255,0.08)' : 'transparent',
+      opacity: msg.isSadam ? 0.7 : 1,
+      borderBottom: isContinuation ? 'none' : '1px solid rgba(255,255,255,0.03)',
+    }}>
+      {/* 아바타 자리 — 연속이면 빈 공간으로 정렬 유지 */}
+      <div style={{ width: AVATAR_W, flexShrink: 0 }}>
+        {!isContinuation && (
+          <div style={{
+            width: AVATAR_W, height: AVATAR_W,
+            borderRadius: 6, overflow: 'hidden',
+            background: '#2a2a3a',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {msg.iconUrl
+              ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+              : <span style={{ fontSize: '1.1em', color: '#555' }}>👤</span>
+            }
+          </div>
+        )}
+      </div>
+
+      {/* 본문 */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* 이름 행 — 첫 발언에만 표시 */}
+        {!isContinuation && (
+          <div style={{ marginBottom: 3, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ color: msg.charColor || '#7eb8d4', fontWeight: 'bold', fontSize: '0.88em' }}>
+              {msg.speaker || '(이름 없음)'}
+            </span>
+            {msg.isSadam && (
+              <span style={{ color: '#666', fontSize: '0.7em', border: '1px solid #3a3a3a', borderRadius: 3, padding: '0 4px' }}>사담</span>
+            )}
+            {msg.type === 'hidden' && (
+              <span style={{ color: '#c06060', fontSize: '0.7em', border: '1px solid #553333', borderRadius: 3, padding: '0 4px' }}>비밀</span>
+            )}
+          </div>
+        )}
+        <div style={{
+          color: '#d4d4d4',
+          fontSize: msg.isSadam ? '0.8em' : '0.88em',
+          lineHeight: 1.65,
+          wordBreak: 'break-word',
+          whiteSpace: 'pre-wrap',
+          textAlign: 'left',
+        }}
+          dangerouslySetInnerHTML={{ __html: msg.content }}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ─── 토글 버튼 공통 스타일 ───────────────────────────────────────
-function ToggleBtn({ active, onClick, children }) {
+function PreviewTab({ active, onClick, children }) {
   return (
     <button onClick={onClick} style={{
       background: active ? '#4a4a4a' : '#f0f0f0',
       color: active ? '#fff' : '#333',
       border: '1px solid #ccc',
       borderRadius: 6,
-      padding: '8px 18px',
-      fontSize: '0.9em',
-      fontWeight: 'bold',
+      padding: '7px 16px',
+      fontSize: '0.85em',
+      fontWeight: active ? 'bold' : 'normal',
       cursor: 'pointer',
     }}>
       {children}
@@ -133,29 +239,51 @@ export default function App() {
   const [catchPhrase, setCatchPhrase] = useState('')
   const [synopsis, setSynopsis] = useState('')
 
-  // 토글
-  const [showPreview, setShowPreview] = useState(false)
-  const [showMessages, setShowMessages] = useState(false)
+  // 미리보기 탭: null | 'epub' | 'roll20' | 'ccfolia'
+  const [previewMode, setPreviewMode] = useState(null)
 
-  const processHtml = useCallback(async (htmlText, name, localImageMap) => {
+  // 플랫폼 선택
+  const [source, setSource] = useState('roll20') // 'roll20' | 'ccfolia'
+  const [ccfoliaMode, setCcfoliaMode] = useState('url') // 'html' | 'url'
+  const [roomInput, setRoomInput] = useState('')
+  const [isFetching, setIsFetching] = useState(false)
+  const [fetchCount, setFetchCount] = useState(0)
+
+  // ─── 파싱 결과 → 상태 반영 ────────────────────────────────────
+  const applyParsedResult = useCallback(({ messages: parsed, templateCss: css }, name, isRoll20 = true) => {
     setFileName(name)
     const base = name.replace(/\.(html|zip)$/i, '')
     setTitle(base)
-    const { messages: parsed, templateCss: css } = await parseRoll20Html(htmlText, localImageMap)
     setMessages(parsed)
-    setTemplateCss(css)
-    setStats({
-      total: parsed.length,
-      general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
-      sadam: parsed.filter(m => m.isSadam).length,
-      hidden: parsed.filter(m => m.type === 'hidden').length,
-      desc: parsed.filter(m => m.type === 'desc').length,
-      emote: parsed.filter(m => m.type === 'emote').length,
-      template: parsed.filter(m => m.type === 'template').length,
-    })
+    setTemplateCss(css || '')
+    if (isRoll20) {
+      setStats({
+        total: parsed.length,
+        general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
+        sadam: parsed.filter(m => m.isSadam).length,
+        hidden: parsed.filter(m => m.type === 'hidden').length,
+        desc: parsed.filter(m => m.type === 'desc').length,
+        emote: parsed.filter(m => m.type === 'emote').length,
+        template: parsed.filter(m => m.type === 'template').length,
+      })
+    } else {
+      setStats({
+        total: parsed.length,
+        general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
+        sadam: parsed.filter(m => m.isSadam).length,
+        hidden: parsed.filter(m => m.type === 'hidden').length,
+        desc: 0, emote: 0, template: 0,
+      })
+    }
   }, [])
 
-  const handleFile = useCallback((file) => {
+  // ─── Roll20 HTML 처리 ────────────────────────────────────────
+  const processRoll20Html = useCallback(async (htmlText, name, localImageMap) => {
+    const result = await parseRoll20Html(htmlText, localImageMap)
+    applyParsedResult(result, name, true)
+  }, [applyParsedResult])
+
+  const handleRoll20File = useCallback((file) => {
     if (!file) return
     if (file.name.endsWith('.zip')) {
       file.arrayBuffer().then(async (buffer) => {
@@ -184,23 +312,60 @@ export default function App() {
               localImageMap[path] = `data:${mime};base64,${b64}`
             })
         )
-        await processHtml(htmlText, htmlName, localImageMap)
+        await processRoll20Html(htmlText, htmlName, localImageMap)
       })
       return
     }
     if (!file.name.endsWith('.html')) return
     const reader = new FileReader()
-    reader.onload = async (e) => { await processHtml(e.target.result, file.name, {}) }
+    reader.onload = async (e) => { await processRoll20Html(e.target.result, file.name, {}) }
     reader.readAsText(file, 'utf-8')
-  }, [processHtml])
+  }, [processRoll20Html])
+
+  // ─── 코코포리아 HTML 처리 ──────────────────────────────────
+  const handleCcfoliaFile = useCallback((file) => {
+    if (!file || !file.name.endsWith('.html')) return
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const result = await parseCcfoliaHtml(e.target.result)
+      if (result.parseError) {
+        alert(result.parseError)
+        return
+      }
+      applyParsedResult(result, file.name, false)
+    }
+    reader.readAsText(file, 'utf-8')
+  }, [applyParsedResult])
+
+  // ─── 코코포리아 URL 수집 ───────────────────────────────────
+  const handleFetchCcfolia = useCallback(async () => {
+    if (!roomInput.trim() || isFetching) return
+    setIsFetching(true)
+    setFetchCount(0)
+    try {
+      const roomId = extractRoomId(roomInput)
+      const result = await fetchCcfoliaLog(roomId, (count) => setFetchCount(count))
+      applyParsedResult(result, roomId, false)
+    } catch (err) {
+      alert(`가져오기 실패: ${err.message}`)
+    } finally {
+      setIsFetching(false)
+    }
+  }, [roomInput, isFetching, applyParsedResult])
+
+  // ─── 드롭존 공통 ──────────────────────────────────────────
+  const handleFileDrop = useCallback((file) => {
+    if (source === 'roll20') handleRoll20File(file)
+    else handleCcfoliaFile(file)
+  }, [source, handleRoll20File, handleCcfoliaFile])
 
   const onDrop = useCallback((e) => {
     e.preventDefault(); setIsDragging(false)
-    handleFile(e.dataTransfer.files[0])
-  }, [handleFile])
+    handleFileDrop(e.dataTransfer.files[0])
+  }, [handleFileDrop])
   const onDragOver = (e) => { e.preventDefault(); setIsDragging(true) }
   const onDragLeave = () => setIsDragging(false)
-  const onInputChange = (e) => handleFile(e.target.files[0])
+  const onInputChange = (e) => handleFileDrop(e.target.files[0])
 
   const onCoverChange = useCallback((e) => {
     const file = e.target.files[0]
@@ -231,38 +396,147 @@ export default function App() {
     }
   }, [messages, title, author, coverImage, catchPhrase, synopsis, fileName, isGenerating, includeSadam, templateCss])
 
+  // 플랫폼 전환 시 기존 파싱 결과 초기화
+  const switchSource = (s) => {
+    setSource(s)
+    setMessages([])
+    setStats(null)
+    setFileName('')
+    setTemplateCss('')
+  }
+
   return (
     <div style={{ fontFamily: 'sans-serif', maxWidth: 960, margin: '0 auto', padding: 24 }}>
       {templateCss && <style>{templateCss}</style>}
       <h1 style={{ fontSize: '1.4em', marginBottom: 4 }}>TRPG EPUB Maker</h1>
-      <p style={{ color: '#666', marginBottom: 20 }}>Roll20 아카이브 HTML 또는 ZIP 파일을 드래그앤드롭하거나 선택하세요.</p>
 
-      {/* 드롭존 */}
-      <div
-        onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
-        style={{
-          border: `2px dashed ${isDragging ? '#4a90e2' : '#ccc'}`,
-          background: isDragging ? '#f0f7ff' : '#fafafa',
-          borderRadius: 8, padding: '40px 20px', textAlign: 'center',
-          cursor: 'pointer', marginBottom: 20, transition: 'all 0.15s',
-        }}
-        onClick={() => document.getElementById('fileInput').click()}
-      >
-        <input id="fileInput" type="file" accept=".html,.zip" style={{ display: 'none' }} onChange={onInputChange} />
-        {fileName
-          ? <span style={{ color: '#4a90e2', fontWeight: 'bold' }}>📄 {fileName}</span>
-          : <span style={{ color: '#aaa' }}>HTML 또는 ZIP 파일을 여기에 드롭하거나 클릭해서 선택</span>
-        }
+      {/* 플랫폼 탭 */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e0e0e0' }}>
+        {[['roll20', 'Roll20'], ['ccfolia', '코코포리아']].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => switchSource(key)}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: source === key ? '2px solid #2c5f2e' : '2px solid transparent',
+              marginBottom: -2,
+              padding: '8px 22px',
+              fontWeight: source === key ? 'bold' : 'normal',
+              color: source === key ? '#2c5f2e' : '#888',
+              fontSize: '0.95em',
+              cursor: 'pointer',
+            }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      {/* 코코포리아 — 입력 방식 선택 */}
+      {source === 'ccfolia' && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            {[['url', 'URL로 가져오기'], ['html', 'HTML 업로드']].map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setCcfoliaMode(key)}
+                style={{
+                  background: ccfoliaMode === key ? '#f0f7ff' : '#f5f5f5',
+                  border: `1px solid ${ccfoliaMode === key ? '#4a90e2' : '#ddd'}`,
+                  borderRadius: 6,
+                  padding: '5px 14px',
+                  fontSize: '0.85em',
+                  color: ccfoliaMode === key ? '#2a6bb5' : '#666',
+                  fontWeight: ccfoliaMode === key ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* URL 입력 모드 */}
+          {ccfoliaMode === 'url' && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                value={roomInput}
+                onChange={e => setRoomInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleFetchCcfolia()}
+                placeholder="방 URL 또는 방 ID 입력 (예: https://ccfolia.com/rooms/abc123)"
+                style={{ ...INP, flex: 1 }}
+                disabled={isFetching}
+              />
+              <button
+                onClick={handleFetchCcfolia}
+                disabled={isFetching || !roomInput.trim()}
+                style={{
+                  background: isFetching ? '#aaa' : '#2a6bb5',
+                  color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '8px 18px', fontSize: '0.9em',
+                  fontWeight: 'bold', cursor: isFetching ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 드롭존 — Roll20 항상, 코코포리아 HTML 모드일 때만 */}
+      {(source === 'roll20' || ccfoliaMode === 'html') && (
+        <div
+          onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
+          style={{
+            border: `2px dashed ${isDragging ? '#4a90e2' : '#ccc'}`,
+            background: isDragging ? '#f0f7ff' : '#fafafa',
+            borderRadius: 8, padding: '40px 20px', textAlign: 'center',
+            cursor: 'pointer', marginBottom: 20, transition: 'all 0.15s',
+          }}
+          onClick={() => document.getElementById('fileInput').click()}
+        >
+          <input
+            id="fileInput"
+            type="file"
+            accept={source === 'roll20' ? '.html,.zip' : '.html'}
+            style={{ display: 'none' }}
+            onChange={onInputChange}
+          />
+          {fileName
+            ? <span style={{ color: '#4a90e2', fontWeight: 'bold' }}>📄 {fileName}</span>
+            : <span style={{ color: '#aaa' }}>
+                {source === 'roll20'
+                  ? 'Roll20 HTML 또는 ZIP 파일을 여기에 드롭하거나 클릭해서 선택'
+                  : '코코포리아 HTML 로그 파일을 여기에 드롭하거나 클릭해서 선택'}
+              </span>
+          }
+        </div>
+      )}
+
+      {/* URL 모드에서 파싱 완료 후 파일명 표시 */}
+      {source === 'ccfolia' && ccfoliaMode === 'url' && fileName && (
+        <div style={{ marginBottom: 20, color: '#4a90e2', fontWeight: 'bold', fontSize: '0.9em' }}>
+          ✓ {fileName} 로그 수집 완료
+        </div>
+      )}
 
       {/* 통계 */}
       {stats && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-          {[
-            ['전체', stats.total, '#333'], ['대사', stats.general, '#4a90e2'],
-            ['사담', stats.sadam, '#aaa'], ['귓속말', stats.hidden, '#e24a4a'],
-            ['GM 지문', stats.desc, '#4aae4a'], ['GM 특수', stats.emote, '#e2a84a'],
-          ].map(([label, count, color]) => (
+          {(source === 'roll20'
+            ? [
+                ['전체', stats.total, '#333'], ['대사', stats.general, '#4a90e2'],
+                ['사담', stats.sadam, '#aaa'], ['귓속말', stats.hidden, '#e24a4a'],
+                ['GM 지문', stats.desc, '#4aae4a'], ['GM 특수', stats.emote, '#e2a84a'],
+              ]
+            : [
+                ['전체', stats.total, '#333'], ['일반', stats.general, '#4a90e2'],
+                ['잡담', stats.sadam, '#aaa'], ['비밀', stats.hidden, '#e24a4a'],
+              ]
+          ).map(([label, count, color]) => (
             <div key={label} style={{ background: '#f5f5f5', borderRadius: 6, padding: '5px 12px', fontSize: '0.85em', color }}>
               <strong>{count}</strong> {label}
             </div>
@@ -338,53 +612,103 @@ export default function App() {
         </div>
       )}
 
-      {/* 다운로드 + 토글 버튼 */}
+      {/* 다운로드 + 미리보기 탭 버튼 */}
       {messages.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <button
             onClick={handleDownload}
             disabled={isGenerating}
             style={{
               background: isGenerating ? '#aaa' : '#2c5f2e', color: '#fff',
-              border: 'none', borderRadius: 6, padding: '10px 24px',
+              border: 'none', borderRadius: 6, padding: '10px 22px',
               fontSize: '1em', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer',
             }}
           >
             {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
           </button>
-          <ToggleBtn active={showPreview} onClick={() => setShowPreview(v => !v)}>
-            {showPreview ? '본문 미리보기 닫기' : '👁 본문 미리보기'}
-          </ToggleBtn>
-          <ToggleBtn active={showMessages} onClick={() => setShowMessages(v => !v)}>
-            {showMessages ? '메시지 목록 닫기' : '📋 메시지 목록'}
-          </ToggleBtn>
-          <label style={{ fontSize: '0.9em', color: '#555', cursor: 'pointer', userSelect: 'none', marginLeft: 4 }}>
-            <input type="checkbox" checked={includeSadam} onChange={e => setIncludeSadam(e.target.checked)} style={{ marginRight: 6 }} />
-            사담(OOC) 포함
+          <div style={{ width: 1, height: 28, background: '#ddd', margin: '0 2px' }} />
+          {[
+            ['epub', '📖 EPUB 미리보기'],
+            ['roll20', '🎲 Roll20 스타일'],
+            ['ccfolia', '🎭 코코포리아 스타일'],
+          ].map(([mode, label]) => (
+            <PreviewTab
+              key={mode}
+              active={previewMode === mode}
+              onClick={() => setPreviewMode(prev => prev === mode ? null : mode)}
+            >
+              {label}
+            </PreviewTab>
+          ))}
+          <label style={{ fontSize: '0.85em', color: '#555', cursor: 'pointer', userSelect: 'none', marginLeft: 4 }}>
+            <input type="checkbox" checked={includeSadam} onChange={e => setIncludeSadam(e.target.checked)} style={{ marginRight: 5 }} />
+            사담 포함
           </label>
         </div>
       )}
 
-      {/* EPUB 본문 미리보기 (토글) */}
-      {showPreview && messages.length > 0 && (
+      {/* 미리보기 영역 */}
+      {previewMode && messages.length > 0 && (
         <div style={{ marginBottom: 24, border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd' }}>
-            EPUB 본문 미리보기 — 실제 리더기 폰트에 따라 다를 수 있어요
-          </div>
-          <iframe
-            srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
-            style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
-            title="EPUB 본문 미리보기"
-          />
-        </div>
-      )}
+          {/* EPUB 미리보기 */}
+          {previewMode === 'epub' && (
+            <>
+              <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd' }}>
+                EPUB 본문 미리보기 — 실제 리더기 폰트에 따라 다를 수 있어요
+              </div>
+              <iframe
+                srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
+                style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
+                title="EPUB 본문 미리보기"
+              />
+            </>
+          )}
 
-      {/* 메시지 목록 (토글) */}
-      {showMessages && messages.length > 0 && (
-        <div style={{ border: '1px solid #eee', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ maxHeight: 600, overflowY: 'auto', padding: '8px 0' }}>
-            {messages.map((msg, i) => <MessageRow key={msg.id || i} msg={msg} />)}
-          </div>
+          {/* Roll20 스타일 */}
+          {previewMode === 'roll20' && (
+            <>
+              <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd' }}>
+                Roll20 스타일 미리보기
+              </div>
+              <div style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
+                {(() => {
+                  let lastSpeaker = ''
+                  return messages.reduce((rows, msg, i) => {
+                    if (msg.isSadam && !includeSadam) return rows
+                    const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker
+                    lastSpeaker = msg.speaker
+                    rows.push(<MessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} />)
+                    return rows
+                  }, [])
+                })()}
+              </div>
+            </>
+          )}
+
+          {/* 코코포리아 스타일 */}
+          {previewMode === 'ccfolia' && (
+            <>
+              <div style={{ background: '#111118', padding: '6px 14px', fontSize: '0.85em', color: '#555', borderBottom: '1px solid #222' }}>
+                코코포리아 스타일 미리보기
+              </div>
+              <div style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
+                {(() => {
+                  let lastSpeaker = ''
+                  let lastChannel = ''
+                  return messages.reduce((rows, msg, i) => {
+                    if (msg.isSadam && !includeSadam) return rows
+                    const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker && msg.channelName === lastChannel
+                    lastSpeaker = msg.speaker
+                    lastChannel = msg.channelName
+                    rows.push(
+                      <CcfoliaMessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} />
+                    )
+                    return rows
+                  }, [])
+                })()}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

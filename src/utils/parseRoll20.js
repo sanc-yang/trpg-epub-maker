@@ -25,6 +25,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
   const messages = [];
   let lastSpeaker = '';
   let lastTimestamp = '';
+  let lastIconUrl = '';
 
   for (const el of messageEls) {
     const classList = el.classList;
@@ -39,9 +40,22 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
     const rawSpeaker = byEl ? byEl.textContent.replace(/:$/, '').trim() : null;
     const speaker = rawSpeaker === '' ? 'GM' : rawSpeaker;
 
+    // 아바타: .by가 있는 첫 발언 행에만 존재. 연속 메시지는 직전 값 상속.
+    const avatarImg = el.querySelector('.avatar img');
+    const iconUrl = (() => {
+      if (!avatarImg) return lastIconUrl;
+      const src = avatarImg.getAttribute('src') || '';
+      if (!src) return lastIconUrl;
+      if (src.startsWith('data:')) return src;
+      // localImageMap에서 base64 resolve (브라우저 Ctrl+S 저장 경로 기준)
+      const key = src.replace(/^\.\//, '');
+      return localImageMap[key] || src;
+    })();
+
     if (speaker !== null) {
       lastSpeaker = speaker;
       lastTimestamp = timestamp;
+      lastIconUrl = iconUrl;
     }
 
     if (classList.contains('general') || classList.contains('hidden-message')) {
@@ -59,12 +73,13 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
       for (const e of el.querySelectorAll('[class]')) {
         const cls = [...e.classList].find(c => c.startsWith('sheet-rolltemplate-'));
         if (cls) {
+          const rawHtml = templateNodeToHtml(e)
           messages.push({
             id, type: 'template', templateClass: cls,
-            templateHtml: templateNodeToHtml(e),
+            templateHtml: cleanTemplateHtml(rawHtml),
             isSadam: false, isYou,
             speaker: speaker !== null ? speaker : lastSpeaker,
-            content: '', timestamp,
+            content: '', timestamp, iconUrl,
           });
           foundTemplate = true;
           break;
@@ -89,14 +104,22 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
 
       if (content === 'This message has been hidden.') continue;
 
+      // .by 없는 general 메시지 중 ': '로 시작하는 건 Roll20 GM 발언 포맷
+      let resolvedSpeaker = speaker !== null ? speaker : lastSpeaker;
+      let resolvedContent = isSadam ? stripInlineColor(content) : content;
+      if (speaker === null && resolvedContent.startsWith(': ')) {
+        resolvedSpeaker = 'GM';
+        resolvedContent = resolvedContent.slice(2).trim();
+      }
+
       messages.push({
         id,
         type: isHidden ? 'hidden' : 'general',
         isSadam,
         isYou,
-        speaker: speaker !== null ? speaker : lastSpeaker,
-        content: isSadam ? stripInlineColor(content) : content,
-        timestamp,
+        speaker: resolvedSpeaker,
+        content: resolvedContent,
+        timestamp, iconUrl: resolvedSpeaker === 'GM' ? '' : iconUrl,
       });
 
     } else if (classList.contains('desc')) {
@@ -110,7 +133,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
         isYou: false,
         speaker: '',
         content,
-        timestamp,
+        timestamp, iconUrl,
         roll: null,
       });
 
@@ -125,7 +148,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
         isYou: false,
         speaker: '',
         content,
-        timestamp,
+        timestamp, iconUrl,
         roll: null,
       });
 
@@ -157,7 +180,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
         formattedHtml,
         rolled,
         content: '',
-        timestamp,
+        timestamp, iconUrl,
         roll: null,
       });
     }
@@ -254,6 +277,49 @@ function pxFontSizeToEm(css) {
     }
   );
   return result;
+}
+
+const COC_SUCCESS_COLORS = {
+  '성공':      'background:#2e7d32;color:#fff',
+  '어려운 성공': 'background:#43a047;color:#fff',
+  '극단적 성공': 'background:#a5d6a7;color:#1b5e20',
+  '대성공':    'background:#76ff03;color:#1a3a00',
+}
+
+function computeCocLevel(roll, skill) {
+  if ((skill < 50 && roll >= 96) || (skill >= 50 && roll === 100)) return '대실패'
+  if (roll > skill) return '실패'
+  if (roll === 1) return '대성공'
+  if (roll <= Math.ceil(skill / 5)) return '극단적 성공'
+  if (roll <= Math.ceil(skill / 2)) return '어려운 성공'
+  return '성공'
+}
+
+function cleanTemplateHtml(html) {
+  html = html
+    .replace(/(대실패|실패|성공|어려운 성공|극도의 성공)!/g, '$1')
+    .replace(/<h3>\s*<span[^>]*data-i18n="regular"[^>]*>[^<]*<\/span>\s*<\/h3>/gi, '')
+
+  // CoC 롤템플릿 한정 (sheet-coc-roll__ 클래스 보유한 템플릿만)
+  if (html.includes('sheet-coc-roll__')) {
+    // 판정값/기능치: inlinerollresult span 텍스트를 vs. 기준으로 추출
+    // 구조: >판정값</span> ... vs. ... >기능치</span>
+    const vsMatch = html.match(/>(\d+)<\/span>[\s\S]{0,500}?vs\.[\s\S]{0,500}?>(\d+)<\/span>/i)
+    if (vsMatch) {
+      const level = computeCocLevel(parseInt(vsMatch[1], 10), parseInt(vsMatch[2], 10))
+      const colorStyle = COC_SUCCESS_COLORS[level]
+      if (colorStyle) {
+        // div.sheet-coc-roll__result 앞에 형제 요소로 배지 삽입 (실패 배지와 동일 구조)
+        const badge = `<div style="${colorStyle};text-align:center;font-weight:bold;padding:4px 8px;">${level}</div>`
+        html = html.replace(
+          /(<div[^>]+class="[^"]*sheet-coc-roll__result[^"]*"[^>]*>)/,
+          `${badge}$1`
+        )
+      }
+    }
+  }
+
+  return html
 }
 
 const TEMPLATE_VOID_TAGS = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr']);
