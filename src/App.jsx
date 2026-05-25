@@ -490,26 +490,33 @@ export default function App() {
     const id = mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs'
     const el = document.getElementById(id)
     if (!el) return
+
     const bgColor = mode === 'ccfolia' ? '#0e0e16' : '#fff'
-    const textColor = mode === 'ccfolia' ? '#d4d4d4' : '#333'
-    const wrapperId = mode === 'ccfolia' ? ' id="ccfolia-preview-msgs"' : ''
-    const extraCss = mode === 'roll20' ? templateCss : '#ccfolia-preview-msgs img { background: #f5f5f5; }'
-    const html = [
-      '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
-      `body{margin:0;background:${bgColor};color:${textColor};font-family:sans-serif;}`,
-      extraCss,
-      '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}',
-      `</style></head><body><div${wrapperId}>`,
-      el.innerHTML,
-      '</div></body></html>',
-    ].join('')
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const w = window.open(url, '_blank')
-    if (w) {
-      w.onload = () => { w.focus(); w.print(); URL.revokeObjectURL(url) }
-    }
-  }, [templateCss])
+
+    // 스크롤 제한 임시 해제
+    const origMax = el.style.maxHeight
+    const origOverflow = el.style.overflowY
+    el.style.maxHeight = 'none'
+    el.style.overflowY = 'visible'
+
+    // 현재 페이지에서 해당 div만 보이게 하고 인쇄
+    const style = document.createElement('style')
+    style.textContent =
+      '@media print{' +
+      'body *{visibility:hidden;}' +
+      '#' + id + ',#' + id + ' *{visibility:visible;}' +
+      '#' + id + '{position:absolute;left:0;top:0;width:100%;background:' + bgColor + '!important;}' +
+      'body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+      '}'
+    document.head.appendChild(style)
+
+    window.print()
+
+    // 인쇄 다이얼로그 닫힌 후 복원
+    el.style.maxHeight = origMax
+    el.style.overflowY = origOverflow
+    style.remove()
+  }, [])
 
   // 플랫폼 전환 시 기존 파싱 결과 초기화
   const switchSource = (s) => {
