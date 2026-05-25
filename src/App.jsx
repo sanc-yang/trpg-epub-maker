@@ -666,13 +666,14 @@ export default function App() {
                 ['잡담', stats.sadam, t.textSub], ['비밀', stats.hidden, '#ef4444'],
               ]
           ).map(([label, count, color]) => (
-            <div key={label} style={{
-              background: t.surface, border: `1px solid ${t.border}`,
+            <span key={label} style={{
+              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
               borderRadius: 20, padding: '4px 12px', fontSize: '0.78em',
+              display: 'inline-flex', alignItems: 'center', gap: 5,
             }}>
-              <strong style={{ color }}>{count}</strong>
-              <span style={{ color: t.textSub, marginLeft: 5 }}>{label}</span>
-            </div>
+              <strong style={{ color, fontWeight: 700 }}>{count}</strong>
+              <span style={{ color: t.textSub }}>{label}</span>
+            </span>
           ))}
         </div>
       )}
@@ -758,16 +759,15 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-            <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
-              {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
-            </button>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-          </div>
-
           <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
-            <div style={{ background: t.surface, padding: '8px 16px', fontSize: '0.78em', color: t.textSub, borderBottom: `1px solid ${t.border}` }}>
-              EPUB 본문 미리보기 — 실제 리더기 폰트에 따라 다를 수 있어요
+            <div style={{ background: t.surface, padding: '8px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78em', color: t.textSub }}>EPUB 본문 미리보기</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+                <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
+                  {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
+                </button>
+              </div>
             </div>
             <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
@@ -780,15 +780,15 @@ export default function App() {
       {/* ── Roll20 패널 ── */}
       {selectedMode === 'roll20' && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-          </div>
-          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ background: t.surface, padding: '8px 16px', fontSize: '0.78em', color: t.textSub, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Roll20 스타일 미리보기</span>
-              <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
-                🖨 PDF 다운로드
-              </button>
+          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
+            <div style={{ background: t.surface, padding: '8px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78em', color: t.textSub }}>Roll20 스타일 미리보기</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+                <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
+                  🖨 PDF 다운로드
+                </button>
+              </div>
             </div>
             <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
               {(() => {
@@ -812,16 +812,16 @@ export default function App() {
       {/* ── 코코포리아 패널 ── */}
       {selectedMode === 'ccfolia' && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-          </div>
-          <div style={{ border: '1px solid #2a2a3a', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #2a2a3a', borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
             <style>{`#ccfolia-preview-msgs img { background: #f5f5f5; }`}</style>
-            <div style={{ background: '#111118', padding: '8px 16px', fontSize: '0.78em', color: '#555', borderBottom: '1px solid #1e1e2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>코코포리아 스타일 미리보기</span>
-              <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 6, padding: '5px 14px', fontSize: '0.82em', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
-                🖨 PDF 다운로드
-              </button>
+            <div style={{ background: '#111118', padding: '8px 16px', borderBottom: '1px solid #1e1e2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.78em', color: '#555' }}>코코포리아 스타일 미리보기</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor="#555" offColor="#3a3a3c" />
+                <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 6, padding: '5px 14px', fontSize: '0.82em', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
+                  🖨 PDF 다운로드
+                </button>
+              </div>
             </div>
             <div id="ccfolia-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
               {(() => {
