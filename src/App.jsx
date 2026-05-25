@@ -284,13 +284,13 @@ export default function App() {
     bg: '#111111', surface: '#1c1c1e', surfaceAlt: '#2c2c2e',
     border: '#2c2c2e', borderSub: '#3a3a3c',
     text: '#f5f5f7', textSub: '#8e8e93', textMuted: '#48484a',
-    accent: '#3b82f6', accentFg: '#ffffff',
+    accent: '#f5f5f7', accentFg: '#111111',
     inputBg: '#2c2c2e', inputBorder: '#3a3a3c',
   } : {
     bg: '#f2f2f7', surface: '#ffffff', surfaceAlt: '#f2f2f7',
     border: '#e5e5ea', borderSub: '#d1d1d6',
     text: '#1c1c1e', textSub: '#6c6c70', textMuted: '#aeaeb2',
-    accent: '#2563eb', accentFg: '#ffffff',
+    accent: '#1c1c1e', accentFg: '#ffffff',
     inputBg: '#ffffff', inputBorder: '#d1d1d6',
   }
 
