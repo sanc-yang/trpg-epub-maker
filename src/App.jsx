@@ -262,7 +262,7 @@ function ToggleSwitch({ checked, onChange, label, labelColor, offColor }) {
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: '0.84em', color: labelColor || '#555' }}>
       <div onClick={() => onChange(!checked)} style={{
         width: 36, height: 20, borderRadius: 10,
-        background: checked ? '#22c55e' : (offColor || '#ccc'),
+        background: checked ? '#3b82f6' : (offColor || '#ccc'),
         position: 'relative', transition: 'background 0.2s', flexShrink: 0,
       }}>
         <div style={{
@@ -284,13 +284,13 @@ export default function App() {
     bg: '#111111', surface: '#1c1c1e', surfaceAlt: '#2c2c2e',
     border: '#2c2c2e', borderSub: '#3a3a3c',
     text: '#f5f5f7', textSub: '#8e8e93', textMuted: '#48484a',
-    accent: '#f5f5f7', accentFg: '#111111',
+    accent: '#3b82f6', accentFg: '#ffffff',
     inputBg: '#2c2c2e', inputBorder: '#3a3a3c',
   } : {
     bg: '#f2f2f7', surface: '#ffffff', surfaceAlt: '#f2f2f7',
     border: '#e5e5ea', borderSub: '#d1d1d6',
     text: '#1c1c1e', textSub: '#6c6c70', textMuted: '#aeaeb2',
-    accent: '#1c1c1e', accentFg: '#ffffff',
+    accent: '#2563eb', accentFg: '#ffffff',
     inputBg: '#ffffff', inputBorder: '#d1d1d6',
   }
 
