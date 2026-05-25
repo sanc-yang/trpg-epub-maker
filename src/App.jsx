@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
@@ -111,10 +111,6 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
   )
 }
 
-// ─── 입력 공통 스타일 ────────────────────────────────────────────
-const INP = { width: '100%', padding: '7px 10px', borderRadius: 4, border: '1px solid #ddd', fontSize: '0.9em', boxSizing: 'border-box', background: '#fff' }
-const LBL = { fontSize: '0.8em', color: '#888', marginBottom: 4, display: 'block' }
-const FIELD = { marginBottom: 12 }
 
 // ─── 표지 미리보기 컴포넌트 ─────────────────────────────────────
 function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
@@ -261,24 +257,18 @@ function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
 }
 
 // ─── 사담 토글 스위치 ───────────────────────────────────────────
-function ToggleSwitch({ checked, onChange, label }) {
+function ToggleSwitch({ checked, onChange, label, labelColor, offColor }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: '0.85em', color: '#555' }}>
-      <div
-        onClick={() => onChange(!checked)}
-        style={{
-          width: 36, height: 20, borderRadius: 10,
-          background: checked ? '#2c5f2e' : '#ccc',
-          position: 'relative', transition: 'background 0.2s',
-          flexShrink: 0,
-        }}
-      >
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: '0.84em', color: labelColor || '#555' }}>
+      <div onClick={() => onChange(!checked)} style={{
+        width: 36, height: 20, borderRadius: 10,
+        background: checked ? '#22c55e' : (offColor || '#ccc'),
+        position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+      }}>
         <div style={{
-          width: 16, height: 16, borderRadius: '50%',
-          background: '#fff', position: 'absolute',
-          top: 2, left: checked ? 18 : 2,
-          transition: 'left 0.2s',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          width: 16, height: 16, borderRadius: '50%', background: '#fff',
+          position: 'absolute', top: 2, left: checked ? 18 : 2,
+          transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
         }} />
       </div>
       {label}
@@ -286,26 +276,33 @@ function ToggleSwitch({ checked, onChange, label }) {
   )
 }
 
-// ─── 토글 버튼 공통 스타일 ───────────────────────────────────────
-function PreviewTab({ active, onClick, children }) {
-  return (
-    <button onClick={onClick} style={{
-      background: active ? '#4a4a4a' : '#f0f0f0',
-      color: active ? '#fff' : '#333',
-      border: '1px solid #ccc',
-      borderRadius: 6,
-      padding: '7px 16px',
-      fontSize: '0.85em',
-      fontWeight: active ? 'bold' : 'normal',
-      cursor: 'pointer',
-    }}>
-      {children}
-    </button>
-  )
-}
-
 // ─── 메인 앱 ────────────────────────────────────────────────────
 export default function App() {
+  const [isDark, setIsDark] = useState(false)
+
+  const t = isDark ? {
+    bg: '#111111', surface: '#1c1c1e', surfaceAlt: '#2c2c2e',
+    border: '#2c2c2e', borderSub: '#3a3a3c',
+    text: '#f5f5f7', textSub: '#8e8e93', textMuted: '#48484a',
+    accent: '#f5f5f7', accentFg: '#111111',
+    inputBg: '#2c2c2e', inputBorder: '#3a3a3c',
+  } : {
+    bg: '#f2f2f7', surface: '#ffffff', surfaceAlt: '#f2f2f7',
+    border: '#e5e5ea', borderSub: '#d1d1d6',
+    text: '#1c1c1e', textSub: '#6c6c70', textMuted: '#aeaeb2',
+    accent: '#1c1c1e', accentFg: '#ffffff',
+    inputBg: '#ffffff', inputBorder: '#d1d1d6',
+  }
+
+  useEffect(() => {
+    document.body.style.background = t.bg
+    document.body.style.transition = 'background 0.2s'
+  }, [isDark])
+
+  const INP = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${t.inputBorder}`, fontSize: '0.88em', boxSizing: 'border-box', background: t.inputBg, color: t.text, fontFamily: 'inherit', outline: 'none' }
+  const LBL = { fontSize: '0.7em', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textSub, marginBottom: 6, display: 'block' }
+  const FIELD = { marginBottom: 14 }
+
   const [messages, setMessages] = useState([])
   const [templateCss, setTemplateCss] = useState('')
   const [fileName, setFileName] = useState('')
@@ -529,55 +526,89 @@ export default function App() {
     setIsParsing(false)
   }
 
-  return (
-    <div style={{ fontFamily: 'sans-serif', maxWidth: 960, margin: '0 auto', padding: 24 }}>
-      {templateCss && <style>{templateCss}</style>}
-      <h1 style={{ fontSize: '1.4em', marginBottom: 4 }}>TRPG EPUB Maker</h1>
+  const BTN_PRIMARY = {
+    background: t.accent, color: t.accentFg, border: 'none',
+    borderRadius: 8, padding: '10px 22px', fontSize: '0.9em', fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'opacity 0.15s',
+  }
+  const BTN_SECONDARY = {
+    background: t.surface, color: t.text, border: `1px solid ${t.border}`,
+    borderRadius: 8, padding: '7px 16px', fontSize: '0.82em', fontWeight: 500,
+    cursor: 'pointer', fontFamily: 'inherit',
+  }
+  const SECTION_LABEL = {
+    fontSize: '0.7em', fontWeight: 700, letterSpacing: '0.08em',
+    textTransform: 'uppercase', color: t.textSub, margin: '0 0 18px',
+  }
 
-      {/* 플랫폼 탭 */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e0e0e0' }}>
+  return (
+    <div style={{
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      maxWidth: 900, margin: '0 auto', padding: '40px 28px',
+      color: t.text, transition: 'color 0.2s',
+    }}>
+      {templateCss && <style>{templateCss}</style>}
+
+      {/* ── 헤더 ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40 }}>
+        <div>
+          <h1 style={{ fontSize: '1.6em', fontWeight: 700, margin: 0, letterSpacing: '-0.03em', color: t.text }}>
+            TRPG EPUB Maker
+          </h1>
+          <p style={{ fontSize: '0.82em', color: t.textSub, margin: '5px 0 0 1px', letterSpacing: 0 }}>
+            Roll20 · 코코포리아 세션 로그 → EPUB / PDF
+          </p>
+        </div>
+        <button onClick={() => setIsDark(d => !d)} style={{ ...BTN_SECONDARY, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20 }}>
+          {isDark ? '☀️ 라이트' : '🌙 다크'}
+        </button>
+      </div>
+
+      {/* ── 플랫폼 탭 ── */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${t.border}`, marginBottom: 28 }}>
         {[['roll20', 'Roll20'], ['ccfolia', '코코포리아']].map(([key, label]) => (
           <button key={key} onClick={() => switchSource(key)} style={{
             background: 'none', border: 'none',
-            borderBottom: source === key ? '2px solid #2c5f2e' : '2px solid transparent',
-            marginBottom: -2, padding: '8px 22px',
-            fontWeight: source === key ? 'bold' : 'normal',
-            color: source === key ? '#2c5f2e' : '#888',
-            fontSize: '0.95em', cursor: 'pointer',
+            borderBottom: source === key ? `2px solid ${t.text}` : '2px solid transparent',
+            marginBottom: -1, padding: '8px 22px 10px',
+            fontWeight: source === key ? 600 : 400,
+            color: source === key ? t.text : t.textSub,
+            fontSize: '0.9em', cursor: 'pointer', fontFamily: 'inherit',
+            transition: 'color 0.15s',
           }}>
             {label}
           </button>
         ))}
       </div>
 
-      {/* 코코포리아 — 입력 방식 선택 */}
+      {/* ── 코코포리아 입력 방식 ── */}
       {source === 'ccfolia' && (
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             {[['url', 'URL로 가져오기'], ['html', 'HTML 업로드']].map(([key, label]) => (
               <button key={key} onClick={() => setCcfoliaMode(key)} style={{
-                background: ccfoliaMode === key ? '#f0f7ff' : '#f5f5f5',
-                border: `1px solid ${ccfoliaMode === key ? '#4a90e2' : '#ddd'}`,
-                borderRadius: 6, padding: '5px 14px', fontSize: '0.85em',
-                color: ccfoliaMode === key ? '#2a6bb5' : '#666',
-                fontWeight: ccfoliaMode === key ? 'bold' : 'normal', cursor: 'pointer',
+                ...BTN_SECONDARY,
+                background: ccfoliaMode === key ? t.accent : t.surface,
+                color: ccfoliaMode === key ? t.accentFg : t.textSub,
+                border: `1px solid ${ccfoliaMode === key ? t.accent : t.border}`,
+                fontWeight: ccfoliaMode === key ? 600 : 400,
               }}>
                 {label}
               </button>
             ))}
           </div>
           {ccfoliaMode === 'url' && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 10 }}>
               <input
                 value={roomInput} onChange={e => setRoomInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleFetchCcfolia()}
-                placeholder="방 URL 또는 방 ID 입력 (예: https://ccfolia.com/rooms/abc123)"
+                placeholder="방 URL 또는 방 ID (예: https://ccfolia.com/rooms/abc123)"
                 style={{ ...INP, flex: 1 }} disabled={isFetching}
               />
               <button onClick={handleFetchCcfolia} disabled={isFetching || !roomInput.trim()} style={{
-                background: isFetching ? '#aaa' : '#2a6bb5', color: '#fff',
-                border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: '0.9em',
-                fontWeight: 'bold', cursor: isFetching ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                ...BTN_PRIMARY, opacity: (isFetching || !roomInput.trim()) ? 0.5 : 1,
+                cursor: (isFetching || !roomInput.trim()) ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
               }}>
                 {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
               </button>
@@ -586,17 +617,17 @@ export default function App() {
         </div>
       )}
 
-      {/* 드롭존 */}
+      {/* ── 드롭존 ── */}
       {(source === 'roll20' || ccfoliaMode === 'html') && (
         <div
           onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
-          style={{
-            border: `2px dashed ${isDragging ? '#4a90e2' : '#ccc'}`,
-            background: isDragging ? '#f0f7ff' : '#fafafa',
-            borderRadius: 8, padding: '40px 20px', textAlign: 'center',
-            cursor: 'pointer', marginBottom: 20, transition: 'all 0.15s',
-          }}
           onClick={() => document.getElementById('fileInput').click()}
+          style={{
+            border: `1.5px dashed ${isDragging ? t.text : t.borderSub}`,
+            background: isDragging ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)') : t.surface,
+            borderRadius: 12, padding: '36px 20px', textAlign: 'center',
+            cursor: 'pointer', marginBottom: 24, transition: 'all 0.15s',
+          }}
         >
           <input
             id="fileInput" type="file"
@@ -604,148 +635,141 @@ export default function App() {
             style={{ display: 'none' }} onChange={onInputChange}
           />
           {fileName
-            ? <span style={{ color: '#4a90e2', fontWeight: 'bold' }}>📄 {fileName}</span>
-            : <span style={{ color: '#aaa' }}>
-                {source === 'roll20'
-                  ? 'Roll20 ZIP 파일을 여기에 드롭하거나 클릭해서 선택'
-                  : '코코포리아 HTML 로그 파일을 여기에 드롭하거나 클릭해서 선택'}
-              </span>
+            ? <span style={{ color: t.text, fontWeight: 600, fontSize: '0.9em' }}>📄 {fileName}</span>
+            : <>
+                <div style={{ fontSize: '1.6em', marginBottom: 8 }}>📂</div>
+                <div style={{ color: t.textSub, fontSize: '0.88em' }}>
+                  {source === 'roll20' ? 'Roll20 ZIP 파일 드롭 또는 클릭' : '코코포리아 HTML 파일 드롭 또는 클릭'}
+                </div>
+              </>
           }
         </div>
       )}
 
-      {/* URL 모드 수집 완료 표시 */}
+      {/* URL 수집 완료 */}
       {source === 'ccfolia' && ccfoliaMode === 'url' && fileName && (
-        <div style={{ marginBottom: 20, color: '#4a90e2', fontWeight: 'bold', fontSize: '0.9em' }}>
-          ✓ {fileName} 로그 수집 완료
-        </div>
+        <p style={{ fontSize: '0.84em', color: t.textSub, marginBottom: 20 }}>✓ {fileName} 수집 완료</p>
       )}
 
-      {/* 통계 */}
+      {/* ── 통계 ── */}
       {stats && (
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 28 }}>
           {(source === 'roll20'
             ? [
-                ['전체', stats.total, '#333'], ['대사', stats.general, '#4a90e2'],
-                ['사담', stats.sadam, '#aaa'], ['숨김굴림', stats.hidden, '#e24a4a'],
-                ['귓속말', stats.whisper, '#b8a800'],
-                ['GM 지문', stats.desc, '#4aae4a'], ['GM 특수', stats.emote, '#e2a84a'],
+                ['전체', stats.total, t.text],
+                ['대사', stats.general, '#3b82f6'], ['사담', stats.sadam, t.textSub],
+                ['숨김굴림', stats.hidden, '#ef4444'], ['귓속말', stats.whisper, '#eab308'],
+                ['GM 지문', stats.desc, '#22c55e'], ['GM 특수', stats.emote, '#f97316'],
               ]
             : [
-                ['전체', stats.total, '#333'], ['일반', stats.general, '#4a90e2'],
-                ['잡담', stats.sadam, '#aaa'], ['비밀', stats.hidden, '#e24a4a'],
+                ['전체', stats.total, t.text], ['일반', stats.general, '#3b82f6'],
+                ['잡담', stats.sadam, t.textSub], ['비밀', stats.hidden, '#ef4444'],
               ]
           ).map(([label, count, color]) => (
-            <div key={label} style={{ background: '#f5f5f5', borderRadius: 6, padding: '5px 12px', fontSize: '0.85em', color }}>
-              <strong>{count}</strong> {label}
+            <div key={label} style={{
+              background: t.surface, border: `1px solid ${t.border}`,
+              borderRadius: 20, padding: '4px 12px', fontSize: '0.78em',
+            }}>
+              <strong style={{ color }}>{count}</strong>
+              <span style={{ color: t.textSub, marginLeft: 5 }}>{label}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* 파싱 중 */}
+      {/* ── 파싱 중 ── */}
       {isParsing && (
-        <div style={{ padding: '24px 0', color: '#888', fontSize: '1em' }}>
-          로그 변환 준비 중 ...
-        </div>
+        <p style={{ color: t.textSub, fontSize: '0.9em', padding: '8px 0 24px' }}>로그 변환 준비 중 ...</p>
       )}
 
-      {/* 모드 선택 */}
+      {/* ── 모드 선택 ── */}
       {!isParsing && messages.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: '0.95em', color: '#444', marginBottom: 12 }}>
+        <div style={{ marginBottom: 32 }}>
+          <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          </p>
+          <div style={{ display: 'flex', gap: 10 }}>
             {[
-              ['epub', '📖 EPUB 스타일'],
-              ['roll20', '🎲 Roll20 스타일'],
-              ['ccfolia', '🎭 코코포리아 스타일'],
-            ].map(([mode, label]) => (
-              <button
-                key={mode}
+              ['epub', '📖', 'EPUB 스타일'],
+              ['roll20', '🎲', 'Roll20 스타일'],
+              ['ccfolia', '🎭', '코코포리아 스타일'],
+            ].map(([mode, icon, label]) => (
+              <button key={mode}
                 onClick={() => setSelectedMode(prev => prev === mode ? null : mode)}
                 style={{
-                  background: selectedMode === mode ? '#2c5f2e' : '#f0f0f0',
-                  color: selectedMode === mode ? '#fff' : '#333',
-                  border: `1px solid ${selectedMode === mode ? '#2c5f2e' : '#ccc'}`,
-                  borderRadius: 8, padding: '10px 22px',
-                  fontSize: '0.95em', fontWeight: selectedMode === mode ? 'bold' : 'normal',
-                  cursor: 'pointer',
+                  flex: 1,
+                  background: selectedMode === mode ? t.accent : t.surface,
+                  color: selectedMode === mode ? t.accentFg : t.text,
+                  border: `1px solid ${selectedMode === mode ? t.accent : t.border}`,
+                  borderRadius: 12, padding: '16px 12px', cursor: 'pointer',
+                  fontFamily: 'inherit', transition: 'all 0.15s', textAlign: 'center',
                 }}
               >
-                {label}
+                <div style={{ fontSize: '1.3em', marginBottom: 5 }}>{icon}</div>
+                <div style={{ fontSize: '0.82em', fontWeight: selectedMode === mode ? 600 : 400 }}>{label}</div>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* EPUB 스타일 패널 */}
+      {/* ── EPUB 패널 ── */}
       {selectedMode === 'epub' && (
         <>
-          {/* 표지 편집 */}
-          <div style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: '16px 20px', marginBottom: 16, background: '#fafafa' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '0.95em', color: '#333', marginBottom: 14 }}>표지 편집</div>
-            <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 28, marginBottom: 24 }}>
+            <p style={SECTION_LABEL}>표지 편집</p>
+            <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={FIELD}>
                   <label style={LBL}>표지 이미지</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <input type="file" accept="image/*" onChange={onCoverChange} style={{ fontSize: '0.85em' }} />
+                    <input type="file" accept="image/*" onChange={onCoverChange} style={{ fontSize: '0.84em', color: t.textSub }} />
                     {coverImage && (
                       <>
-                        <img src={coverImage} alt="cover" style={{ height: 48, borderRadius: 3, border: '1px solid #ddd', objectFit: 'cover' }} />
-                        <button onClick={() => setCoverImage(null)} style={{ fontSize: '0.8em', color: '#999', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                        <img src={coverImage} alt="cover" style={{ height: 48, borderRadius: 6, border: `1px solid ${t.border}`, objectFit: 'cover' }} />
+                        <button onClick={() => setCoverImage(null)} style={{ fontSize: '0.8em', color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
                       </>
                     )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ ...FIELD, flex: 2 }}>
-                    <label style={LBL}>제목 (EPUB 타이틀)</label>
+                    <label style={LBL}>제목</label>
                     <input value={title} onChange={e => setTitle(e.target.value)} style={INP} />
                   </div>
                   <div style={{ ...FIELD, flex: 1 }}>
                     <label style={LBL}>작가명</label>
-                    <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="(선택)" style={INP} />
+                    <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="선택" style={INP} />
                   </div>
                 </div>
                 <div style={FIELD}>
-                  <label style={LBL}>캐치프레이즈 <span style={{ opacity: 0.6 }}>(선택)</span></label>
-                  <textarea value={catchPhrase} onChange={e => setCatchPhrase(e.target.value)} placeholder="짧은 한 줄 문구" rows={2} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
+                  <label style={LBL}>캐치프레이즈</label>
+                  <textarea value={catchPhrase} onChange={e => setCatchPhrase(e.target.value)} placeholder="짧은 한 줄 문구 (선택)" rows={2} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
                 </div>
                 <div style={{ marginBottom: 0 }}>
-                  <label style={LBL}>개요 <span style={{ opacity: 0.6 }}>(선택)</span></label>
-                  <textarea value={synopsis} onChange={e => setSynopsis(e.target.value)} placeholder="줄거리나 소개 문구를 입력하세요" rows={4} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
+                  <label style={LBL}>개요</label>
+                  <textarea value={synopsis} onChange={e => setSynopsis(e.target.value)} placeholder="줄거리나 소개 문구 (선택)" rows={4} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
                 </div>
               </div>
-              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <CoverPreview coverImage={coverImage} coverTitle={title} catchPhrase={catchPhrase} synopsis={synopsis} />
-                <span style={{ fontSize: '0.75em', color: '#aaa' }}>표지 미리보기</span>
+                <span style={{ fontSize: '0.72em', color: t.textMuted }}>표지 미리보기</span>
               </div>
             </div>
           </div>
 
-          {/* EPUB 다운로드 + 사담 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <button onClick={handleDownload} disabled={isGenerating} style={{
-              background: isGenerating ? '#aaa' : '#2c5f2e', color: '#fff',
-              border: 'none', borderRadius: 6, padding: '10px 22px',
-              fontSize: '1em', fontWeight: 'bold', cursor: isGenerating ? 'not-allowed' : 'pointer',
-            }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+            <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
               {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
             </button>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" />
+            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
           </div>
 
-          {/* EPUB iframe */}
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden', marginBottom: 24 }}>
-            <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd' }}>
+          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
+            <div style={{ background: t.surface, padding: '8px 16px', fontSize: '0.78em', color: t.textSub, borderBottom: `1px solid ${t.border}` }}>
               EPUB 본문 미리보기 — 실제 리더기 폰트에 따라 다를 수 있어요
             </div>
-            <iframe
-              srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
+            <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
               title="EPUB 본문 미리보기"
             />
@@ -753,16 +777,16 @@ export default function App() {
         </>
       )}
 
-      {/* Roll20 스타일 패널 */}
+      {/* ── Roll20 패널 ── */}
       {selectedMode === 'roll20' && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" />
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
           </div>
-          <div style={{ border: '1px solid #ddd', borderRadius: 8, overflow: 'hidden' }}>
-            <div style={{ background: '#f5f5f5', padding: '6px 14px', fontSize: '0.85em', color: '#666', borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: t.surface, padding: '8px 16px', fontSize: '0.78em', color: t.textSub, borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>Roll20 스타일 미리보기</span>
-              <button onClick={() => handlePdf('roll20')} style={{ background: '#4a4a4a', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 12px', fontSize: '0.85em', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
                 🖨 PDF 다운로드
               </button>
             </div>
@@ -785,17 +809,17 @@ export default function App() {
         </div>
       )}
 
-      {/* 코코포리아 스타일 패널 */}
+      {/* ── 코코포리아 패널 ── */}
       {selectedMode === 'ccfolia' && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" />
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
           </div>
-          <div style={{ border: '1px solid #222', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ border: '1px solid #2a2a3a', borderRadius: 12, overflow: 'hidden' }}>
             <style>{`#ccfolia-preview-msgs img { background: #f5f5f5; }`}</style>
-            <div style={{ background: '#111118', padding: '6px 14px', fontSize: '0.85em', color: '#555', borderBottom: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: '#111118', padding: '8px 16px', fontSize: '0.78em', color: '#555', borderBottom: '1px solid #1e1e2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>코코포리아 스타일 미리보기</span>
-              <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 5, padding: '4px 12px', fontSize: '0.85em', cursor: 'pointer', fontWeight: 'bold' }}>
+              <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 6, padding: '5px 14px', fontSize: '0.82em', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
                 🖨 PDF 다운로드
               </button>
             </div>
