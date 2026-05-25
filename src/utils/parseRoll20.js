@@ -43,9 +43,9 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
     // 아바타: .by가 있는 첫 발언 행에만 존재. 연속 메시지는 직전 값 상속.
     const avatarImg = el.querySelector('.avatar img');
     const iconUrl = (() => {
-      if (!avatarImg) return lastIconUrl;
+      if (!avatarImg) return speaker === null ? lastIconUrl : '';
       const src = avatarImg.getAttribute('src') || '';
-      if (!src) return lastIconUrl;
+      if (!src) return speaker === null ? lastIconUrl : '';
       if (src.startsWith('data:')) return src;
       // localImageMap에서 base64 resolve (브라우저 Ctrl+S 저장 경로 기준)
       const key = src.replace(/^\.\//, '');
@@ -58,8 +58,9 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
       lastIconUrl = iconUrl;
     }
 
-    if (classList.contains('general') || classList.contains('hidden-message')) {
+    if (classList.contains('general') || classList.contains('hidden-message') || classList.contains('whisper')) {
       const isHidden = classList.contains('hidden-message');
+      const isWhisper = classList.contains('whisper');
       const isYou = classList.contains('you');
 
       // 사담 판별: 내부에 회색 계열 color 스타일이 있으면 OOC
@@ -114,7 +115,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
 
       messages.push({
         id,
-        type: isHidden ? 'hidden' : 'general',
+        type: isHidden ? 'hidden' : isWhisper ? 'whisper' : 'general',
         isSadam,
         isYou,
         speaker: resolvedSpeaker,
@@ -232,23 +233,36 @@ function blobToDataUrl(blob) {
   });
 }
 
+// Roll20 base.css에 있어서 HTML 익스포트에 미포함되는 default 템플릿 CSS 보완
+const FALLBACK_DEFAULT_TEMPLATE_CSS = `
+.sheet-rolltemplate-default { font-size: 13px; }
+.sheet-rolltemplate-default table { border-collapse: collapse; border-spacing: 0; width: 100%; border: 1px solid #bbb; }
+.sheet-rolltemplate-default caption { background: #8624a7; color: #fff; font-weight: bold; padding: 3px 6px; text-align: left; }
+.sheet-rolltemplate-default td { padding: 2px 6px; vertical-align: top; border-bottom: 1px solid #ddd; border-right: 1px solid #ddd; }
+.sheet-rolltemplate-default td:last-child { border-right: none; }
+.sheet-rolltemplate-default tr:last-child td { border-bottom: none; }
+.sheet-rolltemplate-default tr:nth-child(odd) td { background: #f0f0f0; }
+.sheet-rolltemplate-default tr:nth-child(even) td { background: #fff; }
+`
+
 /**
  * Roll20 <style> 블록에서 .sheet-rolltemplate-* 관련 CSS 규칙만 추출
  */
 function extractTemplateCss(doc) {
   const css = [...doc.querySelectorAll('style')].map(el => el.textContent).join('\n');
-  if (!css) return '';
-  const result = [];
-  let depth = 0;
-  let blockStart = 0;
-  for (let i = 0; i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}') {
-      depth--;
-      if (depth === 0) {
-        const block = css.slice(blockStart, i + 1).trim();
-        if (block.includes('.sheet-rolltemplate-')) result.push(block);
-        blockStart = i + 1;
+  const result = [FALLBACK_DEFAULT_TEMPLATE_CSS];
+  if (css) {
+    let depth = 0;
+    let blockStart = 0;
+    for (let i = 0; i < css.length; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          const block = css.slice(blockStart, i + 1).trim();
+          if (block.includes('.sheet-rolltemplate-')) result.push(block);
+          blockStart = i + 1;
+        }
       }
     }
   }
@@ -376,6 +390,10 @@ function nodeToHtml(node) {
       }
       return parts.join('');
     }
+    if (node.classList.contains('diceroll')) {
+      const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
+      return `<span style="display:inline-block;min-width:1.2em;padding:1px 4px;border:1px solid #bbb;background:#f9f9f9;text-align:center;border-radius:2px;">${inner}</span>`;
+    }
     if (node.tagName?.toLowerCase() === 'br') return '<br />';
     if (node.tagName?.toLowerCase() === 'img') {
       const src = (node.getAttribute('src') || '').replace(/"/g, '&quot;');
@@ -386,7 +404,7 @@ function nodeToHtml(node) {
     // inlinerollresult에 inline style이 없으면 Roll20 기본 스타일 폴백
     if (node.classList.contains('inlinerollresult') && !node.getAttribute('style')) {
       const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
-      return `<span style="background-color:#FEF68E;border:2px solid #FEF68E;font-weight:bold;padding:0 2px;">${inner}</span>`;
+      return `<span style="background-color:#FEF68E;border:2px solid #FEF68E;color:#333;font-weight:bold;padding:0 2px;">${inner}</span>`;
     }
     const tag = node.tagName.toLowerCase();
     const style = node.getAttribute('style');

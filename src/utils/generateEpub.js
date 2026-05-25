@@ -272,8 +272,8 @@ function messagesToHtml(messages, includeSadam) {
       continue
     }
 
-    // general / hidden / sadam
-    const msgType = msg.type === 'hidden' ? 'hidden' : (msg.isSadam ? 'sadam' : 'general')
+    // general / hidden / whisper / sadam
+    const msgType = (msg.type === 'hidden' || msg.type === 'whisper') ? 'hidden' : (msg.isSadam ? 'sadam' : 'general')
     const cls = msgType === 'hidden' ? 'whisper' : msgType === 'sadam' ? 'sadam' : 'dialogue'
     const speaker = msg.speaker || ''
 

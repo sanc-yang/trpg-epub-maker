@@ -11,14 +11,19 @@ const MIME_MAP = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif:
 const TYPE_COLOR = {
   general: '#e8f4ff',
   hidden: '#fff0f0',
+  whisper: '#ffffc0',
   desc: '#f0fff0',
-  emote: '#fff8e0',
+  emote: '#fde8d4',
+  template: '#e8f4ff',
+  rollresult: '#e8f4ff',
 }
 
 // ─── Roll20 스타일 메시지 행 ─────────────────────────────────────
 const AVATAR_SIZE = 36
 
-function MessageRow({ msg, isContinuation }) {
+const R20_BORDER = '1px solid rgba(0,0,0,0.06)'
+
+function MessageRow({ msg, isContinuation, isLastInGroup }) {
   const isCentered = msg.type === 'desc' || msg.type === 'emote'
 
   // desc / emote: 아바타 없이 원래 스타일 유지
@@ -28,12 +33,12 @@ function MessageRow({ msg, isContinuation }) {
       <div style={{
         background: isDesc ? 'rgba(0,0,0,0.04)' : (TYPE_COLOR[msg.type] || '#fff'),
         padding: '6px 10px 6px ' + (AVATAR_SIZE + 18) + 'px',
-        marginBottom: 1,
         textAlign: 'center',
-        color: isDesc ? '#000' : undefined,
+        color: isDesc ? '#000' : '#8b4b1a',
+        borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
         {msg.content && (
-          <span style={{ fontStyle: msg.type === 'emote' ? 'italic' : 'normal', fontWeight: 'bold' }}
+          <span style={{ fontStyle: 'italic', fontWeight: 'bold' }}
             dangerouslySetInnerHTML={{ __html: msg.content }} />
         )}
       </div>
@@ -74,7 +79,7 @@ function MessageRow({ msg, isContinuation }) {
         background: 'rgba(0,0,0,0.04)',
         opacity: 0.75,
         fontSize: '0.9em',
-        borderBottom: isContinuation ? 'none' : '1px solid rgba(0,0,0,0.06)',
+        borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
         {contentBlock}
       </div>
@@ -88,13 +93,13 @@ function MessageRow({ msg, isContinuation }) {
       gap: 10,
       padding: isContinuation ? '2px 10px' : '6px 10px',
       background: bg,
-      borderBottom: isContinuation ? 'none' : '1px solid rgba(0,0,0,0.06)',
+      borderBottom: isLastInGroup ? R20_BORDER : 'none',
     }}>
       <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
         {!isContinuation && msg.iconUrl && (
           <div style={{
             width: AVATAR_SIZE, height: AVATAR_SIZE,
-            borderRadius: 900, overflow: 'hidden',
+            borderRadius: 4, overflow: 'hidden',
             background: '#d8d8d8',
           }}>
             <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
@@ -144,9 +149,65 @@ function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
   )
 }
 
+const CC_BORDER = '1px solid rgba(255,255,255,0.03)'
+
 // ─── 코코포리아 스타일 메시지 행 ─────────────────────────────────
-function CcfoliaMessageRow({ msg, isContinuation }) {
+function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
   const AVATAR_W = 44
+
+  // desc/emote: 아바타 없이 중앙 정렬 GM 지문
+  if (msg.type === 'desc' || msg.type === 'emote') {
+    return (
+      <div style={{
+        padding: '8px 14px',
+        textAlign: 'center',
+        color: msg.type === 'emote' ? '#ffa040' : '#ddd',
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        fontSize: '0.85em',
+        lineHeight: 1.65,
+        borderBottom: isLastInGroup ? CC_BORDER : 'none',
+        background: 'rgba(255,255,255,0.02)',
+      }}>
+        <span dangerouslySetInnerHTML={{ __html: msg.content }} />
+      </div>
+    )
+  }
+
+  // type별 본문 블록
+  let contentBlock
+  if (msg.type === 'template') {
+    contentBlock = (
+      <div style={{ background: '#f5f5f5', borderRadius: 4, overflow: 'hidden' }}>
+        <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
+      </div>
+    )
+  } else if (msg.type === 'rollresult') {
+    contentBlock = (
+      <div style={{
+        background: 'rgba(255,255,255,0.05)', borderRadius: 6,
+        padding: '6px 10px', display: 'inline-block',
+      }}>
+        {msg.formula && <div style={{ fontSize: '0.75em', color: '#888', marginBottom: 3 }}>{msg.formula}</div>}
+        {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
+        {msg.rolled && <div style={{ fontWeight: 'bold', color: '#ffd080', fontSize: '1.1em' }}>= {msg.rolled}</div>}
+      </div>
+    )
+  } else {
+    contentBlock = (
+      <div style={{
+        color: '#d4d4d4',
+        fontSize: msg.isSadam ? '0.8em' : '0.88em',
+        lineHeight: 1.65,
+        wordBreak: 'break-word',
+        whiteSpace: 'pre-wrap',
+        textAlign: 'left',
+      }}
+        dangerouslySetInnerHTML={{ __html: msg.content }}
+      />
+    )
+  }
+
   return (
     <div style={{
       display: 'flex',
@@ -154,9 +215,9 @@ function CcfoliaMessageRow({ msg, isContinuation }) {
       padding: isContinuation ? '2px 14px' : '10px 14px 6px',
       background: msg.isSadam ? 'rgba(255,255,255,0.08)' : 'transparent',
       opacity: msg.isSadam ? 0.7 : 1,
-      borderBottom: isContinuation ? 'none' : '1px solid rgba(255,255,255,0.03)',
+      borderBottom: isLastInGroup ? CC_BORDER : 'none',
     }}>
-      {/* 아바타 자리 — 연속이면 빈 공간으로 정렬 유지 */}
+      {/* 아바타 자리 */}
       <div style={{ width: AVATAR_W, flexShrink: 0 }}>
         {!isContinuation && (
           <div style={{
@@ -167,7 +228,9 @@ function CcfoliaMessageRow({ msg, isContinuation }) {
           }}>
             {msg.iconUrl
               ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
-              : <span style={{ fontSize: '1.1em', color: '#555' }}>👤</span>
+              : msg.speaker === 'GM'
+                ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
+                : null
             }
           </div>
         )}
@@ -175,7 +238,6 @@ function CcfoliaMessageRow({ msg, isContinuation }) {
 
       {/* 본문 */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* 이름 행 — 첫 발언에만 표시 */}
         {!isContinuation && (
           <div style={{ marginBottom: 3, display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span style={{ color: msg.charColor || '#7eb8d4', fontWeight: 'bold', fontSize: '0.88em' }}>
@@ -185,20 +247,14 @@ function CcfoliaMessageRow({ msg, isContinuation }) {
               <span style={{ color: '#666', fontSize: '0.7em', border: '1px solid #3a3a3a', borderRadius: 3, padding: '0 4px' }}>사담</span>
             )}
             {msg.type === 'hidden' && (
-              <span style={{ color: '#c06060', fontSize: '0.7em', border: '1px solid #553333', borderRadius: 3, padding: '0 4px' }}>비밀</span>
+              <span style={{ color: '#c06060', fontSize: '0.7em', border: '1px solid #553333', borderRadius: 3, padding: '0 4px' }}>숨김</span>
+            )}
+            {msg.type === 'whisper' && (
+              <span style={{ color: '#b8a800', fontSize: '0.7em', border: '1px solid #554400', borderRadius: 3, padding: '0 4px' }}>귓속말</span>
             )}
           </div>
         )}
-        <div style={{
-          color: '#d4d4d4',
-          fontSize: msg.isSadam ? '0.8em' : '0.88em',
-          lineHeight: 1.65,
-          wordBreak: 'break-word',
-          whiteSpace: 'pre-wrap',
-          textAlign: 'left',
-        }}
-          dangerouslySetInnerHTML={{ __html: msg.content }}
-        />
+        {contentBlock}
       </div>
     </div>
   )
@@ -262,6 +318,7 @@ export default function App() {
         general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
         sadam: parsed.filter(m => m.isSadam).length,
         hidden: parsed.filter(m => m.type === 'hidden').length,
+        whisper: parsed.filter(m => m.type === 'whisper').length,
         desc: parsed.filter(m => m.type === 'desc').length,
         emote: parsed.filter(m => m.type === 'emote').length,
         template: parsed.filter(m => m.type === 'template').length,
@@ -529,7 +586,8 @@ export default function App() {
           {(source === 'roll20'
             ? [
                 ['전체', stats.total, '#333'], ['대사', stats.general, '#4a90e2'],
-                ['사담', stats.sadam, '#aaa'], ['귓속말', stats.hidden, '#e24a4a'],
+                ['사담', stats.sadam, '#aaa'], ['숨김굴림', stats.hidden, '#e24a4a'],
+                ['귓속말', stats.whisper, '#b8a800'],
                 ['GM 지문', stats.desc, '#4aae4a'], ['GM 특수', stats.emote, '#e2a84a'],
               ]
             : [
@@ -673,13 +731,16 @@ export default function App() {
               <div style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
                 {(() => {
                   let lastSpeaker = ''
-                  return messages.reduce((rows, msg, i) => {
-                    if (msg.isSadam && !includeSadam) return rows
+                  const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
+                  const annotated = filtered.map(msg => {
                     const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker
                     lastSpeaker = msg.speaker
-                    rows.push(<MessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} />)
-                    return rows
-                  }, [])
+                    return { msg, isContinuation }
+                  })
+                  return annotated.map(({ msg, isContinuation }, i) => {
+                    const isLastInGroup = i === annotated.length - 1 || !annotated[i + 1].isContinuation
+                    return <MessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} />
+                  })
                 })()}
               </div>
             </>
@@ -688,23 +749,25 @@ export default function App() {
           {/* 코코포리아 스타일 */}
           {previewMode === 'ccfolia' && (
             <>
+              <style>{`#ccfolia-preview-msgs img { background: #f5f5f5; }`}</style>
               <div style={{ background: '#111118', padding: '6px 14px', fontSize: '0.85em', color: '#555', borderBottom: '1px solid #222' }}>
                 코코포리아 스타일 미리보기
               </div>
-              <div style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
+              <div id="ccfolia-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
                 {(() => {
                   let lastSpeaker = ''
                   let lastChannel = ''
-                  return messages.reduce((rows, msg, i) => {
-                    if (msg.isSadam && !includeSadam) return rows
+                  const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
+                  const annotated = filtered.map(msg => {
                     const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker && msg.channelName === lastChannel
                     lastSpeaker = msg.speaker
                     lastChannel = msg.channelName
-                    rows.push(
-                      <CcfoliaMessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} />
-                    )
-                    return rows
-                  }, [])
+                    return { msg, isContinuation }
+                  })
+                  return annotated.map(({ msg, isContinuation }, i) => {
+                    const isLastInGroup = i === annotated.length - 1 || !annotated[i + 1].isContinuation
+                    return <CcfoliaMessageRow key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} />
+                  })
                 })()}
               </div>
             </>
