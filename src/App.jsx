@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
@@ -561,7 +562,7 @@ export default function App() {
           </p>
         </div>
         <button onClick={() => setIsDark(d => !d)} style={{ ...BTN_SECONDARY, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20 }}>
-          {isDark ? '☀️ 라이트' : '🌙 다크'}
+          {isDark ? <><Sun size={14} /> 라이트</> : <><Moon size={14} /> 다크</>}
         </button>
       </div>
 
@@ -636,9 +637,9 @@ export default function App() {
             style={{ display: 'none' }} onChange={onInputChange}
           />
           {fileName
-            ? <span style={{ color: t.text, fontWeight: 600, fontSize: '0.9em' }}>📄 {fileName}</span>
+            ? <span style={{ color: t.text, fontWeight: 600, fontSize: '0.9em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><FileText size={15} /> {fileName}</span>
             : <>
-                <div style={{ fontSize: '1.6em', marginBottom: 8 }}>📂</div>
+                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><FolderOpen size={28} strokeWidth={1.5} color={t.textSub} /></div>
                 <div style={{ color: t.textSub, fontSize: '0.88em' }}>
                   {source === 'roll20' ? 'Roll20 ZIP 파일 드롭 또는 클릭' : '코코포리아 HTML 파일 드롭 또는 클릭'}
                 </div>
@@ -649,7 +650,7 @@ export default function App() {
 
       {/* URL 수집 완료 */}
       {source === 'ccfolia' && ccfoliaMode === 'url' && fileName && (
-        <p style={{ fontSize: '0.84em', color: t.textSub, marginBottom: 20 }}>✓ {fileName} 수집 완료</p>
+        <p style={{ fontSize: '0.84em', color: t.textSub, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 5 }}><Check size={13} /> {fileName} 수집 완료</p>
       )}
 
       {/* ── 통계 ── */}
@@ -692,9 +693,9 @@ export default function App() {
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
             {[
-              ['epub', '📖', 'EPUB 스타일'],
-              ['roll20', '🎲', 'Roll20 스타일'],
-              ['ccfolia', '🎭', '코코포리아 스타일'],
+              ['epub', <BookOpen size={20} strokeWidth={1.5} />, 'EPUB 스타일'],
+              ['roll20', <Dices size={20} strokeWidth={1.5} />, 'Roll20 스타일'],
+              ['ccfolia', <Theater size={20} strokeWidth={1.5} />, '코코포리아 스타일'],
             ].map(([mode, icon, label]) => (
               <button key={mode}
                 onClick={() => setSelectedMode(prev => prev === mode ? null : mode)}
@@ -707,7 +708,7 @@ export default function App() {
                   fontFamily: 'inherit', transition: 'all 0.15s', textAlign: 'center',
                 }}
               >
-                <div style={{ fontSize: '1.3em', marginBottom: 5 }}>{icon}</div>
+                <div style={{ marginBottom: 5, display: 'flex', justifyContent: 'center' }}>{icon}</div>
                 <div style={{ fontSize: '0.82em', fontWeight: selectedMode === mode ? 600 : 400 }}>{label}</div>
               </button>
             ))}
@@ -729,7 +730,7 @@ export default function App() {
                     {coverImage && (
                       <>
                         <img src={coverImage} alt="cover" style={{ height: 48, borderRadius: 6, border: `1px solid ${t.border}`, objectFit: 'cover' }} />
-                        <button onClick={() => setCoverImage(null)} style={{ fontSize: '0.8em', color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕</button>
+                        <button onClick={() => setCoverImage(null)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}><X size={14} /></button>
                       </>
                     )}
                   </div>
@@ -766,7 +767,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
                 <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
-                  {isGenerating ? '생성 중...' : '📥 EPUB 다운로드'}
+                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />EPUB 다운로드</>}
                 </button>
               </div>
             </div>
@@ -787,7 +788,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
                 <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
-                  🖨 PDF 다운로드
+                  <><Printer size={13} style={{ marginRight: 5 }} />PDF 다운로드</>
                 </button>
               </div>
             </div>
@@ -820,7 +821,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor="#555" offColor="#3a3a3c" />
                 <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 6, padding: '5px 14px', fontSize: '0.82em', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
-                  🖨 PDF 다운로드
+                  <><Printer size={13} style={{ marginRight: 5 }} />PDF 다운로드</>
                 </button>
               </div>
             </div>
