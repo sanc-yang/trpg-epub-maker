@@ -553,7 +553,8 @@ export default function App() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40 }}>
         <div>
           <h1 style={{ fontSize: '1.6em', fontWeight: 700, margin: 0, letterSpacing: '-0.03em', color: t.text }}>
-            TRPG EPUB Maker
+            [무공비급] TRPG 세션 제본소
+            <span style={{ fontSize: '0.38em', fontWeight: 400, color: t.textMuted, letterSpacing: '0.04em', marginLeft: '0.8em', verticalAlign: 'middle' }}>made by pong</span>
           </h1>
           <p style={{ fontSize: '0.82em', color: t.textSub, margin: '5px 0 0 1px', letterSpacing: 0 }}>
             Roll20 · 코코포리아 세션 로그 → EPUB / PDF
