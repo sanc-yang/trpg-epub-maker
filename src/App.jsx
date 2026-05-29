@@ -544,7 +544,7 @@ export default function App() {
 
   return (
     <div style={{
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       maxWidth: 900, margin: '0 auto', padding: '40px 28px',
       color: t.text, transition: 'color 0.2s',
     }}>
@@ -553,7 +553,7 @@ export default function App() {
       {/* ── 헤더 ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40 }}>
         <div>
-          <h1 style={{ fontSize: '1.6em', fontWeight: 700, margin: 0, letterSpacing: '-0.03em', color: t.text }}>
+          <h1 style={{ fontSize: '1.6em', fontWeight: 700, margin: 0, letterSpacing: '-0.01em', color: t.text, fontFamily: "'Nanum Myeongjo', serif" }}>
             [무공비급] TRPG 세션 제본소
             <span style={{ fontSize: '0.38em', fontWeight: 400, color: t.textMuted, letterSpacing: '0.04em', marginLeft: '0.8em', verticalAlign: 'middle' }}>made by pong</span>
           </h1>
