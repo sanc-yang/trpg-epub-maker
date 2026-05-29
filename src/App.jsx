@@ -558,7 +558,7 @@ export default function App() {
             <span style={{ fontSize: '0.38em', fontWeight: 400, color: t.textMuted, letterSpacing: '0.04em', marginLeft: '0.8em', verticalAlign: 'baseline' }}>made by pong</span>
           </h1>
           <p style={{ fontSize: '0.82em', color: t.textSub, margin: '5px 0 0 1px', letterSpacing: 0 }}>
-            Roll20 · 코코포리아 세션 로그 → EPUB / PDF
+            Roll20 · 코코포리아 세션 로그 → eBook / PDF
           </p>
         </div>
         <button onClick={() => setIsDark(d => !d)} style={{ ...BTN_SECONDARY, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20 }}>
@@ -693,7 +693,7 @@ export default function App() {
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
             {[
-              ['epub', <BookOpen size={20} strokeWidth={1.5} />, 'EPUB 스타일'],
+              ['epub', <BookOpen size={20} strokeWidth={1.5} />, 'eBook 스타일'],
               ['roll20', <Dices size={20} strokeWidth={1.5} />, 'Roll20 스타일'],
               ['ccfolia', <Theater size={20} strokeWidth={1.5} />, '코코포리아 스타일'],
             ].map(([mode, icon, label]) => (
@@ -763,17 +763,17 @@ export default function App() {
 
           <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
             <div style={{ background: t.surface, padding: '8px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.78em', color: t.textSub }}>EPUB 본문 미리보기</span>
+              <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
                 <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
-                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />EPUB 다운로드</>}
+                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />eBook 다운로드</>}
                 </button>
               </div>
             </div>
             <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
-              title="EPUB 본문 미리보기"
+              title="eBook 본문 미리보기"
             />
           </div>
         </>
