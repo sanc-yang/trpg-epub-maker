@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer } from 'lucide-react'
+import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer, CheckCircle, AlertCircle } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
@@ -112,6 +112,33 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
   )
 }
 
+
+// ─── 토스트 ─────────────────────────────────────────────────────
+function Toast({ toasts }) {
+  return (
+    <div style={{ position: 'fixed', bottom: 28, right: 28, display: 'flex', flexDirection: 'column', gap: 10, zIndex: 9999 }}>
+      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      {toasts.map(({ id, message, type }) => (
+        <div key={id} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: type === 'error' ? 'rgba(30,10,10,0.88)' : 'rgba(10,20,10,0.88)',
+          backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+          color: '#fff', borderRadius: 12, padding: '11px 18px',
+          fontSize: '0.85em', fontWeight: 500,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+          border: `1px solid ${type === 'error' ? 'rgba(255,80,80,0.3)' : 'rgba(80,220,120,0.3)'}`,
+          animation: 'fadeUp 0.25s ease',
+          maxWidth: 320,
+        }}>
+          {type === 'error'
+            ? <AlertCircle size={16} color="#ff6b6b" style={{ flexShrink: 0 }} />
+            : <CheckCircle size={16} color="#6bffaa" style={{ flexShrink: 0 }} />}
+          {message}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 // ─── 표지 미리보기 컴포넌트 ─────────────────────────────────────
 function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
@@ -312,6 +339,12 @@ export default function App() {
   }
 
   const modeRef = useRef(null)
+  const [toasts, setToasts] = useState([])
+  const toast = useCallback((message, type = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500)
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('theme', isDark ? 'dark' : 'light')
@@ -405,7 +438,7 @@ export default function App() {
             break
           }
         }
-        if (!htmlText) { alert('ZIP에서 HTML 로그 파일을 찾을 수 없습니다.'); return }
+        if (!htmlText) { toast('ZIP에서 HTML 로그 파일을 찾을 수 없습니다.', 'error'); setIsParsing(false); return }
         const localImageMap = {}
         await Promise.all(
           Object.entries(zip.files)
@@ -439,7 +472,8 @@ export default function App() {
     reader.onload = async (e) => {
       const result = await parseCcfoliaHtml(e.target.result)
       if (result.parseError) {
-        alert(result.parseError)
+        toast(result.parseError, 'error')
+        setIsParsing(false)
         return
       }
       applyParsedResult(result, file.name, false)
@@ -458,7 +492,7 @@ export default function App() {
       const result = await fetchCcfoliaLog(roomId, (count) => setFetchCount(count))
       applyParsedResult(result, roomId, false)
     } catch (err) {
-      alert(`가져오기 실패: ${err.message}`)
+      toast(`가져오기 실패: ${err.message}`, 'error')
     } finally {
       setIsFetching(false)
     }
@@ -502,6 +536,7 @@ export default function App() {
       a.download = `${title || fileName.replace(/\.(html|zip)$/i, '')}.epub`
       a.click()
       URL.revokeObjectURL(url)
+      toast('eBook 다운로드 완료!')
     } finally {
       setIsGenerating(false)
     }
@@ -878,6 +913,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <Toast toasts={toasts} />
     </div>
   )
 }
