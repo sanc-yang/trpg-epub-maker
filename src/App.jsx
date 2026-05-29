@@ -282,22 +282,42 @@ export default function App() {
   const [isDark, setIsDark] = useState(false)
 
   const t = isDark ? {
-    bg: '#111111', surface: '#1c1c1e', surfaceAlt: '#2c2c2e',
-    border: '#2c2c2e', borderSub: '#3a3a3c',
-    text: '#f5f5f7', textSub: '#8e8e93', textMuted: '#48484a',
-    accent: '#f5f5f7', accentFg: '#111111',
-    inputBg: '#2c2c2e', inputBorder: '#3a3a3c',
+    bg: 'linear-gradient(135deg, #0f0c1e 0%, #1a0f2e 50%, #0c1a2e 100%)',
+    glass: 'rgba(255,255,255,0.06)',
+    glassBorder: 'rgba(255,255,255,0.12)',
+    surface: 'rgba(255,255,255,0.06)', surfaceAlt: 'rgba(255,255,255,0.03)',
+    border: 'rgba(255,255,255,0.12)', borderSub: 'rgba(255,255,255,0.07)',
+    text: '#f0f0f5', textSub: '#8e8e99', textMuted: '#55555a',
+    accent: '#f0f0f5', accentFg: '#111118',
+    inputBg: 'rgba(255,255,255,0.09)', inputBorder: 'rgba(255,255,255,0.18)',
+    shadow: '0 4px 28px rgba(0,0,0,0.35)',
   } : {
-    bg: '#f2f2f7', surface: '#ffffff', surfaceAlt: '#f2f2f7',
-    border: '#e5e5ea', borderSub: '#d1d1d6',
+    bg: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%)',
+    glass: 'rgba(255,255,255,0.55)',
+    glassBorder: 'rgba(255,255,255,0.80)',
+    surface: 'rgba(255,255,255,0.55)', surfaceAlt: 'rgba(255,255,255,0.35)',
+    border: 'rgba(180,180,210,0.45)', borderSub: 'rgba(180,180,210,0.30)',
     text: '#1c1c1e', textSub: '#6c6c70', textMuted: '#aeaeb2',
     accent: '#1c1c1e', accentFg: '#ffffff',
-    inputBg: '#ffffff', inputBorder: '#d1d1d6',
+    inputBg: 'rgba(255,255,255,0.70)', inputBorder: 'rgba(180,180,210,0.55)',
+    shadow: '0 4px 28px rgba(100,80,160,0.08)',
+  }
+
+  const GLASS = {
+    background: t.glass,
+    backdropFilter: 'blur(18px) saturate(180%)',
+    WebkitBackdropFilter: 'blur(18px) saturate(180%)',
+    border: `1px solid ${t.glassBorder}`,
+    boxShadow: t.shadow,
   }
 
   useEffect(() => {
-    document.body.style.background = t.bg
-    document.body.style.transition = 'background 0.2s'
+    document.body.style.background = isDark
+      ? 'linear-gradient(135deg, #0f0c1e 0%, #1a0f2e 50%, #0c1a2e 100%)'
+      : 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%)'
+    document.body.style.backgroundAttachment = 'fixed'
+    document.body.style.minHeight = '100vh'
+    document.body.style.transition = 'background 0.3s'
   }, [isDark])
 
   const INP = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${t.inputBorder}`, fontSize: '0.88em', boxSizing: 'border-box', background: t.inputBg, color: t.text, fontFamily: 'inherit', outline: 'none' }
@@ -625,10 +645,11 @@ export default function App() {
           onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
           onClick={() => document.getElementById('fileInput').click()}
           style={{
-            border: `1.5px dashed ${isDragging ? t.text : t.borderSub}`,
-            background: isDragging ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)') : t.surface,
-            borderRadius: 12, padding: '36px 20px', textAlign: 'center',
-            cursor: 'pointer', marginBottom: 24, transition: 'all 0.15s',
+            ...GLASS,
+            border: `1.5px dashed ${isDragging ? t.text : t.glassBorder}`,
+            background: isDragging ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.75)') : t.glass,
+            borderRadius: 16, padding: '36px 20px', textAlign: 'center',
+            cursor: 'pointer', marginBottom: 24, transition: 'all 0.2s',
           }}
         >
           <input
@@ -669,7 +690,7 @@ export default function App() {
               ]
           ).map(([label, count, color]) => (
             <span key={label} style={{
-              background: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+              ...GLASS,
               borderRadius: 20, padding: '4px 12px', fontSize: '0.78em',
               display: 'inline-flex', alignItems: 'center', gap: 5,
             }}>
@@ -700,12 +721,13 @@ export default function App() {
               <button key={mode}
                 onClick={() => setSelectedMode(prev => prev === mode ? null : mode)}
                 style={{
+                  ...GLASS,
                   flex: 1,
-                  background: selectedMode === mode ? t.accent : t.surface,
+                  background: selectedMode === mode ? t.accent : t.glass,
                   color: selectedMode === mode ? t.accentFg : t.text,
-                  border: `1px solid ${selectedMode === mode ? t.accent : t.border}`,
-                  borderRadius: 12, padding: '16px 12px', cursor: 'pointer',
-                  fontFamily: 'inherit', transition: 'all 0.15s', textAlign: 'center',
+                  border: `1px solid ${selectedMode === mode ? t.accent : t.glassBorder}`,
+                  borderRadius: 16, padding: '16px 12px', cursor: 'pointer',
+                  fontFamily: 'inherit', transition: 'all 0.2s', textAlign: 'center',
                 }}
               >
                 <div style={{ marginBottom: 5, display: 'flex', justifyContent: 'center' }}>{icon}</div>
@@ -719,7 +741,7 @@ export default function App() {
       {/* ── EPUB 패널 ── */}
       {selectedMode === 'epub' && (
         <>
-          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 28, marginBottom: 24 }}>
+          <div style={{ ...GLASS, borderRadius: 16, padding: 28, marginBottom: 24 }}>
             <p style={SECTION_LABEL}>표지 편집</p>
             <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -761,8 +783,8 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
-            <div style={{ background: t.surface, padding: '8px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ ...GLASS, borderRadius: 16, overflow: 'hidden', marginBottom: 32 }}>
+            <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
@@ -782,8 +804,8 @@ export default function App() {
       {/* ── Roll20 패널 ── */}
       {selectedMode === 'roll20' && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
-            <div style={{ background: t.surface, padding: '8px 16px', borderBottom: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ ...GLASS, borderRadius: 16, overflow: 'hidden', marginTop: 8 }}>
+            <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: t.textSub }}>Roll20 스타일 미리보기</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
@@ -814,13 +836,13 @@ export default function App() {
       {/* ── 코코포리아 패널 ── */}
       {selectedMode === 'ccfolia' && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ border: '1px solid #2a2a3a', borderRadius: 12, overflow: 'hidden', marginTop: 8 }}>
+          <div style={{ ...GLASS, borderRadius: 16, overflow: 'hidden', marginTop: 8 }}>
             <style>{`#ccfolia-preview-msgs img { background: #f5f5f5; }`}</style>
-            <div style={{ background: '#111118', padding: '8px 16px', borderBottom: '1px solid #1e1e2a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: '#555' }}>코코포리아 스타일 미리보기</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor="#555" offColor="#3a3a3c" />
-                <button onClick={() => handlePdf('ccfolia')} style={{ background: '#2a2a3a', color: '#aaa', border: '1px solid #3a3a4a', borderRadius: 6, padding: '5px 14px', fontSize: '0.82em', cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' }}>
+                <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+                <button onClick={() => handlePdf('ccfolia')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
                   <><Printer size={13} style={{ marginRight: 5 }} />PDF 다운로드</>
                 </button>
               </div>
