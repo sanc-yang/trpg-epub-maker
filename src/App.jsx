@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
@@ -279,7 +279,7 @@ function ToggleSwitch({ checked, onChange, label, labelColor, offColor }) {
 
 // ─── 메인 앱 ────────────────────────────────────────────────────
 export default function App() {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark')
 
   const t = isDark ? {
     bg: 'linear-gradient(135deg, #0f0c1e 0%, #1a0f2e 50%, #0c1a2e 100%)',
@@ -311,11 +311,15 @@ export default function App() {
     boxShadow: t.shadow,
   }
 
+  const modeRef = useRef(null)
+
   useEffect(() => {
-    document.body.style.background = isDark
+    localStorage.setItem('theme', isDark ? 'dark' : 'light')
+    const grad = isDark
       ? 'linear-gradient(135deg, #0f0c1e 0%, #1a0f2e 50%, #0c1a2e 100%)'
       : 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%)'
-    document.body.style.backgroundAttachment = 'fixed'
+    document.body.style.background = grad
+    document.body.style.backgroundSize = 'cover'
     document.body.style.minHeight = '100vh'
     document.body.style.transition = 'background 0.3s'
   }, [isDark])
@@ -703,12 +707,16 @@ export default function App() {
 
       {/* ── 파싱 중 ── */}
       {isParsing && (
-        <p style={{ color: t.textSub, fontSize: '0.9em', padding: '8px 0 24px' }}>로그 변환 준비 중 ...</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0 24px', color: t.textSub, fontSize: '0.9em' }}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <div style={{ width: 16, height: 16, border: `2px solid ${t.borderSub}`, borderTopColor: t.textSub, borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+          로그 변환 준비 중 ...
+        </div>
       )}
 
       {/* ── 모드 선택 ── */}
       {!isParsing && messages.length > 0 && (
-        <div style={{ marginBottom: 32 }}>
+        <div style={{ marginBottom: 32 }} ref={modeRef}>
           <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
@@ -719,7 +727,10 @@ export default function App() {
               ['ccfolia', <Theater size={20} strokeWidth={1.5} />, '코코포리아 스타일'],
             ].map(([mode, icon, label]) => (
               <button key={mode}
-                onClick={() => setSelectedMode(prev => prev === mode ? null : mode)}
+                onClick={() => {
+                  setSelectedMode(prev => prev === mode ? null : mode)
+                  setTimeout(() => modeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+                }}
                 style={{
                   ...GLASS,
                   flex: 1,
