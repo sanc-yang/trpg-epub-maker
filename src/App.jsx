@@ -647,7 +647,7 @@ export default function App() {
           style={{
             ...GLASS,
             border: `1.5px dashed ${isDragging ? t.text : t.glassBorder}`,
-            background: isDragging ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.75)') : t.glass,
+            background: isDragging ? (isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.75)') : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.30)'),
             borderRadius: 16, padding: '36px 20px', textAlign: 'center',
             cursor: 'pointer', marginBottom: 24, transition: 'all 0.2s',
           }}
