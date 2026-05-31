@@ -550,29 +550,26 @@ export default function App() {
 
     const bgColor = mode === 'ccfolia' ? '#0e0e16' : '#fff'
 
-    // 스크롤 제한 임시 해제
-    el.style.maxHeight = 'none'
-    el.style.overflowY = 'visible'
+    // body 직하에 print 전용 div 생성
+    // - visibility:hidden 대신 display:none 으로 기존 UI 완전 제거 (레이아웃 공간 없앰)
+    // - body 직하이므로 GLASS 컨테이너의 containing block / overflow 영향 없음
+    const printDiv = document.createElement('div')
+    printDiv.id = 'trpg-pdf-print'
+    printDiv.innerHTML = el.innerHTML
+    printDiv.style.cssText = `background:${bgColor};margin:0;padding:0;`
+    document.body.appendChild(printDiv)
 
-    // @media print:
-    // - 부모 컨테이너의 overflow:hidden 이 position:absolute 자식을 클리핑하므로
-    //   * { overflow: visible } 로 전체 해제
-    // - 대상 div만 visible, 나머지 hidden
     const style = document.createElement('style')
     style.textContent =
       '@media print{' +
-      '* { overflow:visible!important; max-height:none!important; }' +
-      'body *{visibility:hidden;}' +
-      '#' + id + ',#' + id + ' *{visibility:visible;}' +
-      '#' + id + '{position:absolute;left:0;top:0;width:100%;background:' + bgColor + '!important;}' +
-      'body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
+      'body > *:not(#trpg-pdf-print){display:none!important;}' +
+      '#trpg-pdf-print{display:block!important;}' +
+      'body{margin:0;padding:0;background:' + bgColor + '!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
       '}'
     document.head.appendChild(style)
 
-    // afterprint 이벤트로 복원 (window.print() 반환 타이밍 불일치 방지)
     const cleanup = () => {
-      el.style.maxHeight = ''
-      el.style.overflowY = ''
+      printDiv.remove()
       style.remove()
       window.removeEventListener('afterprint', cleanup)
     }
