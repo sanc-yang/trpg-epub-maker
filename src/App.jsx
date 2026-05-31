@@ -339,6 +339,7 @@ export default function App() {
   }
 
   const modeRef = useRef(null)
+  const epubIframeRef = useRef(null)
   const [toasts, setToasts] = useState([])
   const toast = useCallback((message, type = 'success') => {
     const id = Date.now()
@@ -381,7 +382,7 @@ export default function App() {
   const [isParsing, setIsParsing] = useState(false)
 
   // 플랫폼 선택
-  const [source, setSource] = useState('roll20') // 'roll20' | 'ccfolia'
+  const [source, setSource] = useState(() => localStorage.getItem('trpg_source') || 'roll20') // 'roll20' | 'ccfolia'
   const [ccfoliaMode, setCcfoliaMode] = useState('url') // 'html' | 'url'
   const [roomInput, setRoomInput] = useState('')
   const [isFetching, setIsFetching] = useState(false)
@@ -575,8 +576,19 @@ export default function App() {
     style.remove()
   }, [])
 
+  // EPUB 미리보기 iframe 콘텐츠 높이 자동 조절
+  const handleEpubIframeLoad = useCallback(() => {
+    try {
+      const iframe = epubIframeRef.current
+      if (!iframe) return
+      const h = iframe.contentDocument?.documentElement?.scrollHeight
+      if (h && h > 100) iframe.style.height = (h + 4) + 'px'
+    } catch (e) {}
+  }, [])
+
   // 플랫폼 전환 시 기존 파싱 결과 초기화
   const switchSource = (s) => {
+    localStorage.setItem('trpg_source', s)
     setSource(s)
     setMessages([])
     setStats(null)
@@ -600,6 +612,13 @@ export default function App() {
     fontSize: '0.7em', fontWeight: 700, letterSpacing: '0.08em',
     textTransform: 'uppercase', color: t.textSub, margin: '0 0 18px',
   }
+
+  // 코코포리아 URL 유효성 검사
+  const roomTrimmed = roomInput.trim()
+  const roomUrlValid = /ccfolia\.com\/rooms\/[a-zA-Z0-9_-]{4,}/.test(roomTrimmed)
+  const roomIdValid = /^[a-zA-Z0-9_-]{4,}$/.test(roomTrimmed)
+  const roomValid = roomUrlValid || roomIdValid
+  const roomInvalidMsg = roomTrimmed.length > 0 && !roomValid
 
   return (
     <div style={{
@@ -659,20 +678,31 @@ export default function App() {
             ))}
           </div>
           {ccfoliaMode === 'url' && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input
-                value={roomInput} onChange={e => setRoomInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleFetchCcfolia()}
-                placeholder="방 URL 또는 방 ID (예: https://ccfolia.com/rooms/abc123)"
-                style={{ ...INP, flex: 1 }} disabled={isFetching}
-              />
-              <button onClick={handleFetchCcfolia} disabled={isFetching || !roomInput.trim()} style={{
-                ...BTN_PRIMARY, opacity: (isFetching || !roomInput.trim()) ? 0.5 : 1,
-                cursor: (isFetching || !roomInput.trim()) ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap',
-              }}>
-                {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
-              </button>
+            <div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input
+                  value={roomInput} onChange={e => setRoomInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && roomValid && handleFetchCcfolia()}
+                  placeholder="방 URL 또는 방 ID (예: https://ccfolia.com/rooms/abc123)"
+                  style={{ ...INP, flex: 1, borderColor: roomInvalidMsg ? '#ef4444' : t.inputBorder }}
+                  disabled={isFetching}
+                />
+                <button onClick={handleFetchCcfolia} disabled={isFetching || !roomValid} style={{
+                  ...BTN_PRIMARY, opacity: (isFetching || !roomValid) ? 0.5 : 1,
+                  cursor: (isFetching || !roomValid) ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
+                </button>
+              </div>
+              {roomTrimmed.length > 0 && (
+                <div style={{ fontSize: '0.78em', marginTop: 6, color: roomValid ? '#22c55e' : '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {roomValid
+                    ? <><Check size={12} /> 유효한 {roomUrlValid ? 'URL' : '방 ID'}입니다</>
+                    : <span>유효한 ccfolia URL 또는 방 ID를 입력해주세요</span>
+                  }
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -839,7 +869,10 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
+            <iframe
+              ref={epubIframeRef}
+              onLoad={handleEpubIframeLoad}
+              srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
               title="eBook 본문 미리보기"
             />
@@ -860,7 +893,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
+            <div id="roll20-preview-msgs" style={{ background: '#fff' }}>
               {(() => {
                 let lastSpeaker = ''
                 const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
@@ -893,7 +926,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="ccfolia-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
+            <div id="ccfolia-preview-msgs" style={{ background: '#0e0e16' }}>
               {(() => {
                 let lastSpeaker = ''
                 let lastChannel = ''
