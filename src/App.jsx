@@ -551,15 +551,17 @@ export default function App() {
     const bgColor = mode === 'ccfolia' ? '#0e0e16' : '#fff'
 
     // 스크롤 제한 임시 해제
-    const origMax = el.style.maxHeight
-    const origOverflow = el.style.overflowY
     el.style.maxHeight = 'none'
     el.style.overflowY = 'visible'
 
-    // 현재 페이지에서 해당 div만 보이게 하고 인쇄
+    // @media print:
+    // - 부모 컨테이너의 overflow:hidden 이 position:absolute 자식을 클리핑하므로
+    //   * { overflow: visible } 로 전체 해제
+    // - 대상 div만 visible, 나머지 hidden
     const style = document.createElement('style')
     style.textContent =
       '@media print{' +
+      '* { overflow:visible!important; max-height:none!important; }' +
       'body *{visibility:hidden;}' +
       '#' + id + ',#' + id + ' *{visibility:visible;}' +
       '#' + id + '{position:absolute;left:0;top:0;width:100%;background:' + bgColor + '!important;}' +
@@ -567,12 +569,16 @@ export default function App() {
       '}'
     document.head.appendChild(style)
 
-    window.print()
+    // afterprint 이벤트로 복원 (window.print() 반환 타이밍 불일치 방지)
+    const cleanup = () => {
+      el.style.maxHeight = ''
+      el.style.overflowY = ''
+      style.remove()
+      window.removeEventListener('afterprint', cleanup)
+    }
+    window.addEventListener('afterprint', cleanup)
 
-    // 인쇄 다이얼로그 닫힌 후 복원
-    el.style.maxHeight = origMax
-    el.style.overflowY = origOverflow
-    style.remove()
+    window.print()
   }, [])
 
   // 플랫폼 전환 시 기존 파싱 결과 초기화
