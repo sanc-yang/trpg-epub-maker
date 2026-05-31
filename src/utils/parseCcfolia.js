@@ -138,81 +138,81 @@ function firestoreDocsToMessages(docs) {
 /**
  * 코코포리아 HTML 내보내기 파싱
  *
- * 코코포리아 HTML 내보내기 구조 (실제 파일로 테스트 후 셀렉터 조정 필요):
- * <div class="message-item">
- *   <div class="character-name">캐릭터명</div>
- *   <div class="message-text">내용</div>
- *   <div class="message-dice">주사위 결과</div>
- * </div>
+ * 실제 코코포리아 HTML 내보내기 구조:
+ * <p style="color:#RRGGBB;">
+ *   <span> [채널명]</span>
+ *   <span>화자이름</span> :
+ *   <span>
+ *     내용 (주사위 결과 인라인 포함: "1d2 (1D2) ＞ 1")
+ *   </span>
+ * </p>
+ *
+ * 채널명: [메인] = 본게임, [잡담] = OOC 사담
+ * 주사위: content 안에 "(xDy) ＞ 결과" 형식으로 인라인 포함
  */
 export async function parseCcfoliaHtml(htmlString) {
   const parser = new DOMParser()
   const doc = parser.parseFromString(htmlString, 'text/html')
   const messages = []
 
-  // 코코포리아 HTML 내보내기의 메시지 컨테이너 후보 셀렉터
-  // 실제 파일 구조에 따라 조정이 필요할 수 있음
-  const SELECTORS = [
-    // 패턴 A: class에 'message' 포함 li/div
-    'li[class*="message"]',
-    'div[class*="message-item"]',
-    'div[class*="chatMessage"]',
-    // 패턴 B: data-type 속성
-    '[data-type="message"]',
-    // 패턴 C: 일반적인 채팅 로그 패턴
-    '.log-message',
-    '.chat-log-item',
-  ]
+  // body 직계 <p style="color:..."> 요소가 메시지 단위
+  const paragraphs = doc.querySelectorAll('p[style*="color"]')
 
-  let messageEls = []
-  for (const sel of SELECTORS) {
-    const found = doc.querySelectorAll(sel)
-    if (found.length > 0) {
-      messageEls = [...found]
-      break
+  if (!paragraphs.length) {
+    return {
+      messages: [],
+      templateCss: '',
+      parseError: 'HTML 구조를 인식하지 못했습니다. 코코포리아 HTML 내보내기 파일인지 확인해주세요.',
     }
   }
 
-  // 셀렉터가 안 맞으면 빈 배열 반환 (사용자에게 알림)
-  if (!messageEls.length) {
-    return { messages: [], templateCss: '', parseError: 'HTML 구조를 인식하지 못했습니다. 실제 코코포리아 HTML 파일로 테스트 후 파서를 조정해주세요.' }
-  }
+  for (const p of paragraphs) {
+    const spans = p.querySelectorAll(':scope > span')
+    if (spans.length < 3) continue
 
-  for (const el of messageEls) {
-    const nameEl =
-      el.querySelector('[class*="name"]') ||
-      el.querySelector('[class*="character"]') ||
-      el.querySelector('[class*="speaker"]')
+    // [채널명] 추출: " [메인]" → "메인"
+    const channelRaw = spans[0].textContent.trim()
+    const channel = channelRaw.replace(/^\[/, '').replace(/\]$/, '').trim()
 
-    const textEl =
-      el.querySelector('[class*="text"]') ||
-      el.querySelector('[class*="body"]') ||
-      el.querySelector('[class*="content"]') ||
-      el.querySelector('p')
+    const speaker = spans[1].textContent.trim()
+    const rawContent = spans[2].textContent.trim()
 
-    const diceEl =
-      el.querySelector('[class*="dice"]') ||
-      el.querySelector('[class*="roll"]')
+    if (!rawContent && !speaker) continue
 
-    const name = nameEl?.textContent?.trim() || ''
-    const text = textEl?.textContent?.trim() || ''
-    const diceText = diceEl?.textContent?.trim() || ''
+    // 잡담 채널 = 사담(OOC)
+    const isSadam = channel === '잡담'
 
-    if (!text && !diceText) continue
+    // p 태그 style에서 캐릭터 컬러 추출
+    const colorMatch = p.getAttribute('style')?.match(/color\s*:\s*(#[0-9a-fA-F]{3,8})/)
+    const charColor = colorMatch ? colorMatch[1] : ''
 
-    let content = escHtml(text)
-    if (diceText && diceText !== text) {
-      content += `<div style="font-size:0.85em;color:#555;margin-top:4px;">[🎲 ${escHtml(diceText)}]</div>`
+    // 주사위 결과 포함 여부 감지: (xDy...) ＞ 숫자 패턴 (전각 ＞)
+    const DICE_RE = /\((\d+D[\d+\-*]+)\)\s*＞\s*(.+)/i
+    const hasDice = DICE_RE.test(rawContent)
+
+    let content
+    if (hasDice) {
+      // 전체를 escHtml 후, 주사위 결과 부분만 스타일링
+      const escaped = escHtml(rawContent)
+      content = escaped.replace(
+        /\((\d+D[\d+\-*]+)\)\s*＞\s*([^<\n]+)/gi,
+        '<span style="display:inline-block;font-size:0.85em;color:#888;background:rgba(0,0,0,0.06);padding:1px 6px;border-radius:4px;font-family:monospace;">($1) ＞ $2</span>'
+      )
+    } else {
+      content = escHtml(rawContent)
     }
 
     messages.push({
       id: `ccfolia-html-${messages.length}`,
       type: 'general',
-      isSadam: false,
+      isSadam,
       isYou: false,
-      speaker: name,
+      speaker,
       content,
       timestamp: '',
+      charColor,
+      iconUrl: '',
+      channelName: channel,
     })
   }
 
