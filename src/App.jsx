@@ -882,7 +882,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
+            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff', color: '#1c1c1e' }}>
               {(() => {
                 let lastSpeaker = ''
                 const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
