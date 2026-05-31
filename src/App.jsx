@@ -339,7 +339,6 @@ export default function App() {
   }
 
   const modeRef = useRef(null)
-  const epubIframeRef = useRef(null)
   const [toasts, setToasts] = useState([])
   const toast = useCallback((message, type = 'success') => {
     const id = Date.now()
@@ -574,16 +573,6 @@ export default function App() {
     el.style.maxHeight = origMax
     el.style.overflowY = origOverflow
     style.remove()
-  }, [])
-
-  // EPUB 미리보기 iframe 콘텐츠 높이 자동 조절
-  const handleEpubIframeLoad = useCallback(() => {
-    try {
-      const iframe = epubIframeRef.current
-      if (!iframe) return
-      const h = iframe.contentDocument?.documentElement?.scrollHeight
-      if (h && h > 100) iframe.style.height = (h + 4) + 'px'
-    } catch (e) {}
   }, [])
 
   // 플랫폼 전환 시 기존 파싱 결과 초기화
@@ -869,10 +858,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <iframe
-              ref={epubIframeRef}
-              onLoad={handleEpubIframeLoad}
-              srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
+            <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
               title="eBook 본문 미리보기"
             />
@@ -893,7 +879,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="roll20-preview-msgs" style={{ background: '#fff' }}>
+            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff' }}>
               {(() => {
                 let lastSpeaker = ''
                 const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
@@ -926,7 +912,7 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="ccfolia-preview-msgs" style={{ background: '#0e0e16' }}>
+            <div id="ccfolia-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#0e0e16' }}>
               {(() => {
                 let lastSpeaker = ''
                 let lastChannel = ''
