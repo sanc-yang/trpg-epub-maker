@@ -35,17 +35,26 @@ export async function generateEpub(messages, meta = {}) {
     coverFileName = 'cover.png'
   }
 
+  // bodyHtml의 base64 이미지를 별도 파일로 분리
+  const { html: processedBodyHtml, images: embeddedImages } = extractBase64Images(bodyHtml)
+
   const zip = new JSZip()
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' })
   zip.folder('META-INF').file('container.xml', containerXml())
 
   const oebps = zip.folder('OEBPS')
-  oebps.file('content.opf', contentOpf({ id, title, author, coverFileName, coverMime }))
+  oebps.file('content.opf', contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages }))
   oebps.file('toc.ncx', tocNcx({ id, title }))
   oebps.file('style.css', css)
   oebps.file(coverFileName, coverB64, { base64: true })
   oebps.file('cover.xhtml', coverXhtml({ coverFileName: meta.coverImage ? coverFileName : null, coverTitle, author }))
-  oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml }))
+  oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml: processedBodyHtml }))
+
+  // 분리된 이미지 파일들을 OEBPS/images/ 에 저장
+  const imagesFolder = oebps.folder('images')
+  for (const img of embeddedImages) {
+    imagesFolder.file(img.filename, img.data, { base64: true })
+  }
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
   return blob
@@ -133,7 +142,10 @@ function containerXml() {
 </container>`
 }
 
-function contentOpf({ id, title, author, coverFileName, coverMime }) {
+function contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages = [] }) {
+  const imageItems = embeddedImages.map((img, i) =>
+    `    <item id="img-${i}" href="images/${img.filename}" media-type="${img.mime}"/>`
+  ).join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
@@ -149,6 +161,7 @@ function contentOpf({ id, title, author, coverFileName, coverMime }) {
     <item id="css" href="style.css" media-type="text/css"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="cover-image" href="${coverFileName}" media-type="${coverMime}" properties="cover-image"/>
+${imageItems}
   </manifest>
   <spine toc="ncx">
     <itemref idref="cover" linear="yes"/>
@@ -280,6 +293,24 @@ function messagesToHtml(messages, includeSadam) {
   return parts.join('\n')
 }
 
+
+// ─── base64 이미지 추출 및 파일 분리 ────────────────────────────
+
+function extractBase64Images(html) {
+  const seen = new Map() // dataUrl -> { filename, mime, data }
+  let counter = 0
+
+  const result = html.replace(/src="(data:([^;]+);base64,([^"]+))"/g, (match, dataUrl, mime, data) => {
+    if (!seen.has(dataUrl)) {
+      const ext = COVER_EXT_MAP[mime] || 'png'
+      const filename = `img_${String(++counter).padStart(3, '0')}.${ext}`
+      seen.set(dataUrl, { filename, mime, data })
+    }
+    return `src="images/${seen.get(dataUrl).filename}"`
+  })
+
+  return { html: result, images: [...seen.values()] }
+}
 
 function esc(str) {
   return (str || '')
