@@ -333,6 +333,30 @@ function cleanTemplateHtml(html) {
     }
   }
 
+  // 테이블 colspan 자동 보정: 각 tr의 실제 컬럼 수가 maxCols보다 적으면 마지막 셀에 colspan 보정
+  if (html.includes('<table')) {
+    const tmpDoc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html')
+    tmpDoc.querySelectorAll('table').forEach(table => {
+      const effectiveCols = (tr) =>
+        Array.from(tr.querySelectorAll('th, td'))
+          .reduce((s, c) => s + parseInt(c.getAttribute('colspan') || '1', 10), 0)
+      const rows = Array.from(table.querySelectorAll('tr'))
+      const maxCols = rows.reduce((max, tr) => Math.max(max, effectiveCols(tr)), 0)
+      if (maxCols < 2) return
+      rows.forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll('th, td'))
+        if (!cells.length) return
+        const current = effectiveCols(tr)
+        if (current < maxCols) {
+          const last = cells[cells.length - 1]
+          const lastSpan = parseInt(last.getAttribute('colspan') || '1', 10)
+          last.setAttribute('colspan', String(lastSpan + maxCols - current))
+        }
+      })
+    })
+    html = tmpDoc.querySelector('div').innerHTML
+  }
+
   return html
 }
 
@@ -391,8 +415,9 @@ function nodeToHtml(node) {
       return parts.join('');
     }
     if (node.classList.contains('diceroll')) {
-      const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
-      return `<span style="display:inline-block;min-width:1.2em;padding:1px 4px;border:1px solid #bbb;background:#f9f9f9;text-align:center;border-radius:2px;">${inner}</span>`;
+      const didroll = node.querySelector('.didroll')
+      const text = didroll ? escHtml(didroll.textContent.trim()) : escHtml(node.textContent.trim())
+      return `<span style="display:inline-block;min-width:1.2em;padding:1px 4px;border:1px solid #bbb;background:#f9f9f9;text-align:center;border-radius:2px;">${text}</span>`
     }
     if (node.tagName?.toLowerCase() === 'br') return '<br />';
     if (node.tagName?.toLowerCase() === 'img') {
@@ -407,10 +432,13 @@ function nodeToHtml(node) {
       return `<span style="background-color:#FEF68E;border:2px solid #FEF68E;color:#333;font-weight:bold;padding:0 2px;">${inner}</span>`;
     }
     const tag = node.tagName.toLowerCase();
-    const style = node.getAttribute('style');
-    const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+    const KEEP_ATTRS = new Set(['style', 'colspan', 'rowspan', 'scope', 'align', 'valign', 'width', 'height', 'href', 'src', 'alt', 'type'])
+    const attrs = Array.from(node.attributes)
+      .filter(a => KEEP_ATTRS.has(a.name))
+      .map(a => `${a.name}="${(a.value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
+      .join(' ')
     const inner = Array.from(node.childNodes).map(nodeToHtml).join('');
-    return `<${tag}${styleAttr}>${inner}</${tag}>`;
+    return `<${tag}${attrs ? ' ' + attrs : ''}>${inner}</${tag}>`;
   }
   return '';
 }

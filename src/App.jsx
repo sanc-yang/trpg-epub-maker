@@ -141,34 +141,31 @@ function Toast({ toasts }) {
 }
 
 // ─── 표지 미리보기 컴포넌트 ─────────────────────────────────────
-function CoverPreview({ coverImage, coverTitle, catchPhrase, synopsis }) {
+function CoverPreview({ coverImage, coverTitle, coverAuthor }) {
   return (
     <div style={{
       width: 140, height: 210, background: '#000', overflow: 'hidden', borderRadius: 4,
       display: 'flex', flexDirection: 'column',
-      justifyContent: coverImage ? 'flex-start' : 'center',
-      fontSize: 10,
+      fontSize: 10, position: 'relative',
     }}>
-      {coverImage && (
-        <img src={coverImage} alt="" style={{ display: 'block', width: '100%', maxHeight: '58%', objectFit: 'cover', flexShrink: 0 }} />
+      {coverImage ? (
+        <img src={coverImage} alt="" style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.4em 1.2em' }}>
+          <div style={{ textAlign: 'center' }}>
+            {coverTitle && (
+              <div style={{ color: '#fff', fontFamily: 'Arial, sans-serif', fontSize: '1.4em', fontWeight: 'bold', letterSpacing: '0.04em', lineHeight: 1.4 }}>
+                {coverTitle}
+              </div>
+            )}
+          </div>
+          {coverAuthor && (
+            <div style={{ color: 'rgba(255,255,255,0.7)', fontFamily: 'Arial, sans-serif', fontSize: '0.95em', textAlign: 'right' }}>
+              {coverAuthor}
+            </div>
+          )}
+        </div>
       )}
-      <div style={{ padding: '1em 1.2em', textAlign: 'center' }}>
-        {coverTitle && (
-          <div style={{ color: '#fff', fontFamily: 'Georgia, serif', fontSize: '1.4em', fontWeight: 'bold', letterSpacing: '0.06em', marginBottom: '0.35em', lineHeight: 1.4 }}>
-            {coverTitle}
-          </div>
-        )}
-        {catchPhrase && (
-          <div style={{ color: '#fff', fontSize: '1.1em', fontWeight: 300, letterSpacing: '0.05em', lineHeight: 1.8, marginBottom: '0.3em', opacity: 0.75, whiteSpace: 'pre-line' }}>
-            {catchPhrase}
-          </div>
-        )}
-        {synopsis && (
-          <div style={{ color: '#fff', fontSize: '0.95em', lineHeight: 1.8, marginTop: '0.8em', textAlign: 'left', opacity: 0.88, whiteSpace: 'pre-line' }}>
-            {synopsis}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -358,7 +355,7 @@ export default function App() {
   }, [isDark])
 
   const INP = { width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${t.inputBorder}`, fontSize: '0.88em', boxSizing: 'border-box', background: t.inputBg, color: t.text, fontFamily: 'inherit', outline: 'none' }
-  const LBL = { fontSize: '0.7em', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textSub, marginBottom: 6, display: 'block' }
+  const LBL = { fontSize: '0.7em', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: t.textSub, marginBottom: 6, display: 'block', paddingLeft: 8 }
   const FIELD = { marginBottom: 14 }
 
   const [messages, setMessages] = useState([])
@@ -373,8 +370,6 @@ export default function App() {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [coverImage, setCoverImage] = useState(null)
-  const [catchPhrase, setCatchPhrase] = useState('')
-  const [synopsis, setSynopsis] = useState('')
 
   // 모드 선택: null | 'epub' | 'roll20' | 'ccfolia'
   const [selectedMode, setSelectedMode] = useState(null)
@@ -520,6 +515,18 @@ export default function App() {
     reader.readAsDataURL(file)
   }, [])
 
+  const [isCoverDragging, setIsCoverDragging] = useState(false)
+  const coverInputRef = useRef(null)
+  const onCoverDrop = useCallback((e) => {
+    e.preventDefault()
+    setIsCoverDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (!file || !file.type.startsWith('image/')) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setCoverImage(ev.target.result)
+    reader.readAsDataURL(file)
+  }, [])
+
   const handleDownload = useCallback(async () => {
     if (!messages.length || isGenerating) return
     setIsGenerating(true)
@@ -527,7 +534,6 @@ export default function App() {
       const blob = await generateEpub(messages, {
         title, author, coverImage,
         coverTitle: title,
-        catchPhrase, synopsis,
         includeSadam, templateCss,
       })
       const url = URL.createObjectURL(blob)
@@ -536,11 +542,11 @@ export default function App() {
       a.download = `${title || fileName.replace(/\.(html|zip)$/i, '')}.epub`
       a.click()
       URL.revokeObjectURL(url)
-      toast('eBook 다운로드 완료!')
+      toast('epub 다운로드 완료!')
     } finally {
       setIsGenerating(false)
     }
-  }, [messages, title, author, coverImage, catchPhrase, synopsis, fileName, isGenerating, includeSadam, templateCss])
+  }, [messages, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss])
 
   // ─── PDF 다운로드 ─────────────────────────────────────────────
   const handlePdf = useCallback((mode) => {
@@ -615,7 +621,7 @@ export default function App() {
   return (
     <div style={{
       fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-      maxWidth: 900, margin: '0 auto', padding: '40px 28px',
+      width: '100%', maxWidth: 800, margin: '0 auto', padding: '40px 28px',
       color: t.text, transition: 'color 0.2s',
     }}>
       {templateCss && <style>{templateCss}</style>}
@@ -813,39 +819,52 @@ export default function App() {
             <p style={SECTION_LABEL}>표지 편집</p>
             <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={FIELD}>
-                  <label style={LBL}>표지 이미지</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                    <input type="file" accept="image/*" onChange={onCoverChange} style={{ fontSize: '0.84em', color: t.textSub }} />
-                    {coverImage && (
-                      <>
-                        <img src={coverImage} alt="cover" style={{ height: 48, borderRadius: 6, border: `1px solid ${t.border}`, objectFit: 'cover' }} />
-                        <button onClick={() => setCoverImage(null)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}><X size={14} /></button>
-                      </>
-                    )}
-                  </div>
-                </div>
                 <div style={{ display: 'flex', gap: 12 }}>
                   <div style={{ ...FIELD, flex: 2 }}>
-                    <label style={LBL}>제목</label>
-                    <input value={title} onChange={e => setTitle(e.target.value)} style={INP} />
+                    <label style={{ ...LBL, textAlign: 'left' }}>제목</label>
+                    <input value={title} onChange={e => setTitle(e.target.value)} placeholder="시나리오 제목" style={INP} />
                   </div>
                   <div style={{ ...FIELD, flex: 1 }}>
-                    <label style={LBL}>작가명</label>
-                    <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="선택" style={INP} />
+                    <label style={{ ...LBL, textAlign: 'left' }}>작가명</label>
+                    <input value={author} onChange={e => setAuthor(e.target.value)} placeholder="페어명 또는 팀명" style={INP} />
                   </div>
                 </div>
                 <div style={FIELD}>
-                  <label style={LBL}>캐치프레이즈</label>
-                  <textarea value={catchPhrase} onChange={e => setCatchPhrase(e.target.value)} placeholder="짧은 한 줄 문구 (선택)" rows={2} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
-                </div>
-                <div style={{ marginBottom: 0 }}>
-                  <label style={LBL}>개요</label>
-                  <textarea value={synopsis} onChange={e => setSynopsis(e.target.value)} placeholder="줄거리나 소개 문구 (선택)" rows={4} style={{ ...INP, resize: 'vertical', lineHeight: 1.6 }} />
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 6 }}>
+                    <label style={{ ...LBL, marginBottom: 0 }}>표지 이미지</label>
+                    <span style={{ fontSize: '0.68em', color: t.textMuted }}>*선택 사항</span>
+                  </div>
+                  <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} style={{ display: 'none' }} />
+                  {coverImage ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <img src={coverImage} alt="cover" style={{ height: 56, borderRadius: 6, border: `1px solid ${t.border}`, objectFit: 'cover' }} />
+                      <button onClick={() => setCoverImage(null)} style={{ color: t.textMuted, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8em' }}>
+                        <X size={13} /> 제거
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => coverInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsCoverDragging(true) }}
+                      onDragLeave={() => setIsCoverDragging(false)}
+                      onDrop={onCoverDrop}
+                      style={{
+                        border: `2px dashed ${isCoverDragging ? t.text : t.inputBorder}`,
+                        borderRadius: 10,
+                        padding: '18px 0',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        background: isCoverDragging ? `${t.inputBorder}33` : t.inputBg,
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}
+                    >
+                      <p style={{ margin: 0, fontSize: '0.82em', color: t.textSub }}>클릭하거나 이미지를 드래그하세요</p>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <CoverPreview coverImage={coverImage} coverTitle={title} catchPhrase={catchPhrase} synopsis={synopsis} />
+                <CoverPreview coverImage={coverImage} coverTitle={title} coverAuthor={author} />
                 <span style={{ fontSize: '0.72em', color: t.textMuted }}>표지 미리보기</span>
               </div>
             </div>
@@ -857,7 +876,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
                 <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
-                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />eBook 다운로드</>}
+                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />epub 다운로드</>}
                 </button>
               </div>
             </div>
@@ -882,13 +901,15 @@ export default function App() {
                 </button>
               </div>
             </div>
-            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', background: '#fff', color: '#1c1c1e' }}>
+            <div id="roll20-preview-msgs" style={{ maxHeight: 600, overflowY: 'auto', overflowX: 'hidden', background: '#fff', color: '#1c1c1e' }}>
               {(() => {
                 let lastSpeaker = ''
+                let lastChannel = ''
                 const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
                 const annotated = filtered.map(msg => {
-                  const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker
+                  const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker && (msg.channelName || '') === lastChannel
                   lastSpeaker = msg.speaker
+                  lastChannel = msg.channelName || ''
                   return { msg, isContinuation }
                 })
                 return annotated.map(({ msg, isContinuation }, i) => {

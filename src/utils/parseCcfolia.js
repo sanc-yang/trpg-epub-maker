@@ -75,7 +75,7 @@ export async function fetchCcfoliaLog(roomId, onProgress) {
  *   fields.color.stringValue       — 캐릭터 컬러 (#rrggbb)
  *   fields.secret.booleanValue     — 비밀 메시지 여부
  *   fields.channel.stringValue     — 탭 ID
- *   fields.channelName.stringValue — 탭 이름 ('잡담' = 사담)
+ *   fields.channelName.stringValue — 탭 이름 ('other' 또는 '잡담' = 사담)
  *   fields.iconUrl.stringValue     — 캐릭터 아바타 이미지 URL
  *   fields.extend.mapValue.fields.roll.mapValue.fields.result.stringValue — 주사위 결과
  *   createTime                     — ISO 타임스탬프
@@ -109,8 +109,8 @@ function firestoreDocsToMessages(docs) {
     // 이름도 텍스트도 주사위도 없으면 시스템 메시지로 간주, 스킵
     if (!name && !text && !rollResult) continue
 
-    // '잡담' 탭 = OOC 사담
-    const isSadam = channelName === '잡담'
+    // 'other' 또는 '잡담' 탭 = OOC 사담
+    const isSadam = channelName === 'other' || channelName === '잡담'
 
     let content = escHtml(text)
     if (rollResult) {
@@ -180,7 +180,7 @@ export async function parseCcfoliaHtml(htmlString) {
     if (!rawContent && !speaker) continue
 
     // 잡담 채널 = 사담(OOC)
-    const isSadam = channel === '잡담'
+    const isSadam = channel === '잡담' || channel === 'other'
 
     // p 태그 style에서 캐릭터 컬러 추출
     const colorMatch = p.getAttribute('style')?.match(/color\s*:\s*(#[0-9a-fA-F]{3,8})/)

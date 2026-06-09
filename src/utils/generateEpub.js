@@ -17,8 +17,6 @@ export async function generateEpub(messages, meta = {}) {
   const bodyHtml = messagesToHtml(messages, includeSadam)
 
   const coverTitle = meta.coverTitle || title
-  const catchPhrase = meta.catchPhrase || ''
-  const synopsis = meta.synopsis || ''
 
   // cover 이미지 결정: 업로드 이미지 or canvas 렌더링
   let coverFileName, coverMime, coverB64
@@ -31,7 +29,7 @@ export async function generateEpub(messages, meta = {}) {
     }
   }
   if (!coverB64) {
-    const dataUrl = await renderCoverToPng({ coverTitle, catchPhrase, synopsis })
+    const dataUrl = await renderCoverToPng({ coverTitle, author })
     coverMime = 'image/png'
     coverB64 = dataUrl.replace(/^data:image\/png;base64,/, '')
     coverFileName = 'cover.png'
@@ -46,7 +44,7 @@ export async function generateEpub(messages, meta = {}) {
   oebps.file('toc.ncx', tocNcx({ id, title }))
   oebps.file('style.css', css)
   oebps.file(coverFileName, coverB64, { base64: true })
-  oebps.file('cover.xhtml', coverXhtml({ coverFileName: meta.coverImage ? coverFileName : null, coverTitle, catchPhrase, synopsis }))
+  oebps.file('cover.xhtml', coverXhtml({ coverFileName: meta.coverImage ? coverFileName : null, coverTitle, author }))
   oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml }))
 
   const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
@@ -55,7 +53,7 @@ export async function generateEpub(messages, meta = {}) {
 
 // ─── Canvas 표지 렌더링 (이미지 없을 때 cover.png 생성) ──────────
 
-async function renderCoverToPng({ coverTitle, catchPhrase, synopsis }, W = 600, H = 900) {
+async function renderCoverToPng({ coverTitle, author }, W = 600, H = 900) {
   const canvas = document.createElement('canvas')
   canvas.width = W
   canvas.height = H
@@ -64,28 +62,20 @@ async function renderCoverToPng({ coverTitle, catchPhrase, synopsis }, W = 600, 
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, W, H)
 
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'top'
-
-  let y = Math.round(H * 0.28)
-
   if (coverTitle) {
     ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 52px Georgia, serif'
-    y = canvasWrapText(ctx, coverTitle, W / 2, y, W - 100, 66)
-    y += 18
+    ctx.font = 'bold 54px Arial, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    canvasWrapText(ctx, coverTitle, W / 2, Math.round(H * 0.18), W - 100, 68)
   }
-  if (catchPhrase) {
-    ctx.fillStyle = 'rgba(255,255,255,0.75)'
-    ctx.font = '34px Georgia, serif'
-    y = canvasWrapText(ctx, catchPhrase, W / 2, y, W - 100, 50)
-    y += 14
-  }
-  if (synopsis) {
-    ctx.fillStyle = 'rgba(255,255,255,0.88)'
-    ctx.font = '28px serif'
-    ctx.textAlign = 'left'
-    canvasWrapText(ctx, synopsis, 60, y + 36, W - 120, 42)
+
+  if (author) {
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'
+    ctx.font = '28px Arial, sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(author, W - 50, H - 50)
   }
 
   return canvas.toDataURL('image/png')
@@ -183,13 +173,12 @@ function tocNcx({ id, title }) {
 </ncx>`
 }
 
-function coverXhtml({ coverFileName, coverTitle, catchPhrase, synopsis }) {
-  const catchHtml = catchPhrase
-    ? `<p style="color:#fff;font-size:0.85em;font-weight:300;letter-spacing:0.05em;line-height:1.8;margin:0 0 0.5em;opacity:0.75;">${esc(catchPhrase).replace(/\n/g, '<br/>')}</p>`
-    : ''
-  const synopsisHtml = synopsis
-    ? `<p style="color:#fff;font-size:0.8em;line-height:1.8;margin:1.2em 0 0;text-align:left;opacity:0.88;">${esc(synopsis).replace(/\n/g, '<br/>')}</p>`
-    : ''
+function coverXhtml({ coverFileName, coverTitle, author }) {
+  const textContent = `
+    <div style="padding:2em 1.8em 0;text-align:center;">
+      <h1 style="color:#fff;font-family:Arial,sans-serif;font-size:1.8em;font-weight:bold;letter-spacing:0.04em;margin:0;line-height:1.4;">${esc(coverTitle)}</h1>
+    </div>
+    ${author ? `<div style="padding:0 1.8em;margin-top:3em;text-align:right;"><p style="color:rgba(255,255,255,0.7);font-family:Arial,sans-serif;font-size:0.85em;margin:0;">${esc(author)}</p></div>` : ''}`
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko">
@@ -201,11 +190,7 @@ function coverXhtml({ coverFileName, coverTitle, catchPhrase, synopsis }) {
   </style>
 </head>
 <body>
-  ${coverFileName ? `<img src="${coverFileName}" alt="Cover" style="display:block;width:100%;"/>` : ''}
-  <div style="padding:1.4em 1.8em;text-align:center;">
-    <h1 style="color:#fff;font-family:Georgia,serif;font-size:1.8em;font-weight:bold;letter-spacing:0.06em;margin:0 0 0.35em;line-height:1.4;">${esc(coverTitle)}</h1>
-    ${catchHtml}${synopsisHtml}
-  </div>
+  ${coverFileName ? `<img src="${coverFileName}" alt="Cover" style="display:block;width:100%;"/>` : textContent}
 </body>
 </html>`
 }
@@ -229,19 +214,19 @@ ${bodyHtml}
 
 function messagesToHtml(messages, includeSadam) {
   const parts = []
-  let lastGroup = { speaker: null, type: null }
+  let lastGroup = { speaker: null, type: null, channelName: null }
 
-  const breakGroup = () => { lastGroup = { speaker: null, type: null } }
+  const breakGroup = () => { lastGroup = { speaker: null, type: null, channelName: null } }
 
   for (const msg of messages) {
     if (msg.isSadam && !includeSadam) continue
 
     if (msg.type === 'template') {
       const speaker = msg.speaker || ''
-      const isSameGroup = speaker && speaker === lastGroup.speaker
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
       if (!isSameGroup) {
         if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
-        lastGroup = { speaker, type: 'template' }
+        lastGroup = { speaker, type: 'template', channelName: msg.channelName || null }
       }
       parts.push(`<div style="margin:1em 0">${msg.templateHtml}</div>`)
       continue
@@ -261,10 +246,10 @@ function messagesToHtml(messages, includeSadam) {
     // rollresult (인라인 주사위) — speaker-group에 참여
     if (msg.type === 'rollresult') {
       const speaker = msg.speaker || ''
-      const isSameGroup = speaker && speaker === lastGroup.speaker
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
       if (!isSameGroup) {
         if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
-        lastGroup = { speaker, type: 'rollresult' }
+        lastGroup = { speaker, type: 'rollresult', channelName: msg.channelName || null }
       }
       if (msg.formula) parts.push(`<p class="roll-formula">${esc(msg.formula)}</p>`)
       if (msg.formattedHtml) parts.push(`<div class="roll-formatted">${msg.formattedHtml}</div>`)
@@ -277,13 +262,13 @@ function messagesToHtml(messages, includeSadam) {
     const cls = msgType === 'hidden' ? 'whisper' : msgType === 'sadam' ? 'sadam' : 'dialogue'
     const speaker = msg.speaker || ''
 
-    const isSameGroup = speaker && speaker === lastGroup.speaker && msgType === lastGroup.type
+    const isSameGroup = speaker && speaker === lastGroup.speaker && msgType === lastGroup.type && (msg.channelName || null) === lastGroup.channelName
 
     if (!isSameGroup) {
       if (speaker) {
         parts.push(`<p class="speaker-name ${cls}-name">${esc(speaker)} :</p>`)
       }
-      lastGroup = { speaker, type: msgType }
+      lastGroup = { speaker, type: msgType, channelName: msg.channelName || null }
     }
 
     if (msg.content) {
@@ -352,4 +337,25 @@ p.sadam { opacity: 0.5; font-size: 0.9em; }
 p.roll-formula { font-size: 0.85em; color: #555; margin: 0 0 0.2em; }
 div.roll-formatted { margin: 0.2em 0; }
 p.roll-total { font-weight: bold; font-size: 1.05em; margin: 0.1em 0 0; }
+
+.dicegrouping { display: inline; }
+.diceroll { display: inline-block; vertical-align: middle; }
+.dicon { display: inline-block; vertical-align: middle; }
+.didroll { display: inline; }
+
+[class*="sheet-rolltemplate-"] {
+  line-height: normal;
+  font-size: 1rem;
+}
+[class*="sheet-rolltemplate-"] p {
+  margin: revert;
+}
+[class*="sheet-rolltemplate-"] table {
+  border-collapse: collapse;
+}
+[class*="sheet-rolltemplate-"] td,
+[class*="sheet-rolltemplate-"] th {
+  padding: revert;
+  vertical-align: top;
+}
 `
