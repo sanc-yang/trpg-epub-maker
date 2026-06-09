@@ -335,7 +335,7 @@ function extractBase64Images(html, seen = new Map(), startCounter = 0) {
 // ─── 메시지 → 챕터 배열 변환 ────────────────────────────────────
 // desc 기준으로 챕터 분할, 10000개 초과 시 강제 분할
 
-const CHAPTER_MAX = 10000
+const CHAPTER_SOFT_MAX = 5000
 
 function messagesToChapters(messages, includeSadam) {
   const chapters = []
@@ -343,6 +343,7 @@ function messagesToChapters(messages, includeSadam) {
   let count = 0
   let chapterTitle = null
   let lastGroup = { speaker: null, type: null, channelName: null }
+  let pendingSplit = false // 5000개 초과 후 다음 desc 직전에서 자를 플래그
 
   const flushChapter = () => {
     if (parts.length === 0) return
@@ -356,16 +357,18 @@ function messagesToChapters(messages, includeSadam) {
     parts = []
     count = 0
     chapterTitle = null
+    pendingSplit = false
     lastGroup = { speaker: null, type: null, channelName: null }
   }
 
   for (const msg of messages) {
     if (msg.isSadam && !includeSadam) continue
 
-    // desc 기준 분할 (현재 챕터에 내용이 있을 때만)
-    if (msg.type === 'desc' && count > 0) flushChapter()
-    // 강제 분할
-    if (count >= CHAPTER_MAX) flushChapter()
+    // 5000개 초과 시 다음 desc 직전에서 자르도록 플래그
+    if (count >= CHAPTER_SOFT_MAX) pendingSplit = true
+
+    // desc 직전 + pendingSplit이면 챕터 분할
+    if (msg.type === 'desc' && pendingSplit) flushChapter()
 
     if (msg.type === 'template') {
       const speaker = msg.speaker || ''
