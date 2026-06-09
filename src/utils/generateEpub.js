@@ -376,7 +376,7 @@ p.roll-total { font-weight: bold; font-size: 1.05em; margin: 0.1em 0 0; }
 .didroll { display: inline; }
 
 [class*="sheet-rolltemplate-"] {
-  line-height: normal;
+  line-height: 1.5;
   font-size: 1rem;
 }
 [class*="sheet-rolltemplate-"] p {
