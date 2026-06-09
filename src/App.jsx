@@ -199,7 +199,7 @@ function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
   let contentBlock
   if (msg.type === 'template') {
     contentBlock = (
-      <div style={{ background: '#f5f5f5', borderRadius: 4, overflow: 'hidden' }}>
+      <div style={{ borderRadius: 4 }}>
         <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
       </div>
     )
