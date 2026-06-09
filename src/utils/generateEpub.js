@@ -301,6 +301,7 @@ body {
 }
 
 p { margin: 0.1em 0; }
+img { max-width: 100%; height: auto; }
 
 p.speaker-name {
   font-weight: bold;
