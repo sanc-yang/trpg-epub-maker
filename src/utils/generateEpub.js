@@ -14,7 +14,7 @@ export async function generateEpub(messages, meta = {}) {
   const includeSadam = meta.includeSadam ?? false
   const id = `trpg-${Date.now()}`
   const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
-  const bodyHtml = messagesToHtml(messages, includeSadam)
+  const chapters = messagesToChapters(messages, includeSadam)
 
   const coverTitle = meta.coverTitle || title
 
@@ -35,20 +35,30 @@ export async function generateEpub(messages, meta = {}) {
     coverFileName = 'cover.png'
   }
 
-  // bodyHtml의 base64 이미지를 별도 파일로 분리
-  const { html: processedBodyHtml, images: embeddedImages } = extractBase64Images(bodyHtml)
+  // 각 챕터 HTML의 base64 이미지를 별도 파일로 분리 (전체 통합 처리)
+  const allImages = new Map()
+  let imgCounter = 0
+  const processedChapters = chapters.map(ch => {
+    const { html, images } = extractBase64Images(ch.html, allImages, imgCounter)
+    imgCounter += images.length
+    return { ...ch, html }
+  })
+  const embeddedImages = [...allImages.values()]
 
   const zip = new JSZip()
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' })
   zip.folder('META-INF').file('container.xml', containerXml())
 
   const oebps = zip.folder('OEBPS')
-  oebps.file('content.opf', contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages }))
-  oebps.file('toc.ncx', tocNcx({ id, title }))
+  oebps.file('content.opf', contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages, chapters: processedChapters }))
+  oebps.file('toc.ncx', tocNcx({ id, title, chapters: processedChapters }))
   oebps.file('style.css', css)
   oebps.file(coverFileName, coverB64, { base64: true })
   oebps.file('cover.xhtml', coverXhtml({ coverFileName: meta.coverImage ? coverFileName : null, coverTitle, author }))
-  oebps.file('chapter.xhtml', chapterXhtml({ title, bodyHtml: processedBodyHtml }))
+
+  for (const ch of processedChapters) {
+    oebps.file(ch.filename, chapterXhtml({ title: ch.title || title, bodyHtml: ch.html }))
+  }
 
   // 분리된 이미지 파일들을 OEBPS/images/ 에 저장
   const imagesFolder = oebps.folder('images')
@@ -142,9 +152,15 @@ function containerXml() {
 </container>`
 }
 
-function contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages = [] }) {
+function contentOpf({ id, title, author, coverFileName, coverMime, embeddedImages = [], chapters = [] }) {
   const imageItems = embeddedImages.map((img, i) =>
     `    <item id="img-${i}" href="images/${img.filename}" media-type="${img.mime}"/>`
+  ).join('\n')
+  const chapterItems = chapters.map(ch =>
+    `    <item id="${ch.id}" href="${ch.filename}" media-type="application/xhtml+xml"/>`
+  ).join('\n')
+  const spineItems = chapters.map(ch =>
+    `    <itemref idref="${ch.id}"/>`
   ).join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="2.0">
@@ -157,31 +173,32 @@ function contentOpf({ id, title, author, coverFileName, coverMime, embeddedImage
   </metadata>
   <manifest>
     <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/>
-    <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
     <item id="css" href="style.css" media-type="text/css"/>
     <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
     <item id="cover-image" href="${coverFileName}" media-type="${coverMime}" properties="cover-image"/>
+${chapterItems}
 ${imageItems}
   </manifest>
   <spine toc="ncx">
     <itemref idref="cover" linear="yes"/>
-    <itemref idref="chapter"/>
+${spineItems}
   </spine>
 </package>`
 }
 
-function tocNcx({ id, title }) {
+function tocNcx({ id, title, chapters = [] }) {
+  const navPoints = chapters.map((ch, i) => `
+    <navPoint id="${ch.id}" playOrder="${i + 1}">
+      <navLabel><text>${esc(ch.title || `챕터 ${i + 1}`)}</text></navLabel>
+      <content src="${ch.filename}"/>
+    </navPoint>`).join('')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
   <head>
     <meta name="dtb:uid" content="${id}"/>
   </head>
   <docTitle><text>${esc(title)}</text></docTitle>
-  <navMap>
-    <navPoint id="chapter" playOrder="1">
-      <navLabel><text>${esc(title)}</text></navLabel>
-      <content src="chapter.xhtml"/>
-    </navPoint>
+  <navMap>${navPoints}
   </navMap>
 </ncx>`
 }
@@ -296,20 +313,114 @@ function messagesToHtml(messages, includeSadam) {
 
 // ─── base64 이미지 추출 및 파일 분리 ────────────────────────────
 
-function extractBase64Images(html) {
-  const seen = new Map() // dataUrl -> { filename, mime, data }
-  let counter = 0
+// seen: 챕터 간 공유 Map (중복 제거), startCounter: 이미 등록된 이미지 수
+function extractBase64Images(html, seen = new Map(), startCounter = 0) {
+  let counter = startCounter
+  const newImages = []
 
   const result = html.replace(/src="(data:([^;]+);base64,([^"]+))"/g, (match, dataUrl, mime, data) => {
     if (!seen.has(dataUrl)) {
       const ext = COVER_EXT_MAP[mime] || 'png'
       const filename = `img_${String(++counter).padStart(3, '0')}.${ext}`
-      seen.set(dataUrl, { filename, mime, data })
+      const entry = { filename, mime, data }
+      seen.set(dataUrl, entry)
+      newImages.push(entry)
     }
     return `src="images/${seen.get(dataUrl).filename}"`
   })
 
-  return { html: result, images: [...seen.values()] }
+  return { html: result, images: newImages }
+}
+
+// ─── 메시지 → 챕터 배열 변환 ────────────────────────────────────
+// desc 기준으로 챕터 분할, 10000개 초과 시 강제 분할
+
+const CHAPTER_MAX = 10000
+
+function messagesToChapters(messages, includeSadam) {
+  const chapters = []
+  let parts = []
+  let count = 0
+  let chapterTitle = null
+  let lastGroup = { speaker: null, type: null, channelName: null }
+
+  const flushChapter = () => {
+    if (parts.length === 0) return
+    const idx = chapters.length + 1
+    chapters.push({
+      id: `chapter-${idx}`,
+      filename: `chapter_${String(idx).padStart(3, '0')}.xhtml`,
+      title: chapterTitle || `챕터 ${idx}`,
+      html: parts.join('\n'),
+    })
+    parts = []
+    count = 0
+    chapterTitle = null
+    lastGroup = { speaker: null, type: null, channelName: null }
+  }
+
+  for (const msg of messages) {
+    if (msg.isSadam && !includeSadam) continue
+
+    // desc 기준 분할 (현재 챕터에 내용이 있을 때만)
+    if (msg.type === 'desc' && count > 0) flushChapter()
+    // 강제 분할
+    if (count >= CHAPTER_MAX) flushChapter()
+
+    if (msg.type === 'template') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
+      if (!isSameGroup) {
+        if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
+        lastGroup = { speaker, type: 'template', channelName: msg.channelName || null }
+      }
+      parts.push(`<div style="margin:1em 0">${msg.templateHtml}</div>`)
+      count++
+      continue
+    }
+
+    if (msg.type === 'desc') {
+      lastGroup = { speaker: null, type: null, channelName: null }
+      if (!chapterTitle) chapterTitle = msg.content.replace(/<[^>]*>/g, '').trim()
+      parts.push(`<p class="desc">${msg.content}</p>`)
+      count++
+      continue
+    }
+    if (msg.type === 'emote') {
+      lastGroup = { speaker: null, type: null, channelName: null }
+      parts.push(`<p class="emote">${msg.content}</p>`)
+      count++
+      continue
+    }
+
+    if (msg.type === 'rollresult') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
+      if (!isSameGroup) {
+        if (speaker) parts.push(`<p class="speaker-name">${esc(speaker)} :</p>`)
+        lastGroup = { speaker, type: 'rollresult', channelName: msg.channelName || null }
+      }
+      if (msg.formula) parts.push(`<p class="roll-formula">${esc(msg.formula)}</p>`)
+      if (msg.formattedHtml) parts.push(`<div class="roll-formatted">${msg.formattedHtml}</div>`)
+      if (msg.rolled) parts.push(`<p class="roll-total">= ${esc(msg.rolled)}</p>`)
+      count++
+      continue
+    }
+
+    const msgType = (msg.type === 'hidden' || msg.type === 'whisper') ? 'hidden' : (msg.isSadam ? 'sadam' : 'general')
+    const cls = msgType === 'hidden' ? 'whisper' : msgType === 'sadam' ? 'sadam' : 'dialogue'
+    const speaker = msg.speaker || ''
+    const isSameGroup = speaker && speaker === lastGroup.speaker && msgType === lastGroup.type && (msg.channelName || null) === lastGroup.channelName
+    if (!isSameGroup) {
+      if (speaker) parts.push(`<p class="speaker-name ${cls}-name">${esc(speaker)} :</p>`)
+      lastGroup = { speaker, type: msgType, channelName: msg.channelName || null }
+    }
+    if (msg.content) parts.push(`<p class="${cls}">${msg.content}</p>`)
+    count++
+  }
+
+  flushChapter()
+  return chapters
 }
 
 function esc(str) {
