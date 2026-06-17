@@ -242,7 +242,7 @@ ${bodyHtml}
 
 // ─── 메시지 → HTML 변환 ──────────────────────────────────────────
 
-function messagesToHtml(messages, includeSadam) {
+export function messagesToHtml(messages, includeSadam) {
   const parts = []
   let lastGroup = { speaker: null, type: null, channelName: null }
 
@@ -308,6 +308,88 @@ function messagesToHtml(messages, includeSadam) {
   }
 
   return parts.join('\n')
+}
+
+// ─── 블로그 복사용 HTML ───────────────────────────────────────────────
+const FONT_STACKS = {
+  serif: "'Noto Serif KR', 'Source Han Serif KR', Georgia, serif",
+  'sans-serif': "'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
+}
+
+export function messagesToBlogHtml(messages, includeSadam, fontFamily = 'serif') {
+  const fontStack = FONT_STACKS[fontFamily] || FONT_STACKS.serif
+  const W = 'trpg-blog'
+
+  const css = `
+.${W} { font-family:${fontStack} !important; font-size:1em !important; line-height:1.9 !important; color:#1a1a1a !important; background:#fff; padding:16px; }
+.${W} * { font-family:${fontStack} !important; }
+.${W} img { max-width:100% !important; }
+.${W} .spk { font-weight:bold !important; margin:2em 0 0.1em !important; padding:0 !important; }
+.${W} .dlg { margin:0.1em 0 !important; padding:0 !important; }
+.${W} .dsc { font-weight:bold !important; text-align:center !important; margin:1em 0 !important; padding:0 !important; }
+.${W} .emt { font-weight:bold !important; font-style:italic !important; text-align:center !important; margin:0.8em 0 !important; color:#444 !important; padding:0 !important; }
+.${W} .wspk { font-weight:bold !important; color:#8b0000 !important; margin:2em 0 0.1em !important; padding:0 !important; }
+.${W} .wdlg { color:#8b0000 !important; font-style:italic !important; margin:0.1em 0 !important; padding:0 !important; }
+.${W} .sspk { opacity:0.5 !important; font-size:0.9em !important; font-weight:bold !important; margin:2em 0 0.1em !important; padding:0 !important; }
+.${W} .sdlg { opacity:0.5 !important; font-size:0.9em !important; margin:0.1em 0 !important; padding:0 !important; }
+.${W} .rfml { font-size:0.85em !important; color:#555 !important; margin:0 0 0.2em !important; padding:0 !important; }
+.${W} .rtot { font-weight:bold !important; font-size:1.05em !important; margin:0.1em 0 0 !important; padding:0 !important; }
+`.trim()
+
+  const d = (cls, content) => `<div class="${cls}">${content}</div>`
+  const parts = []
+  let lastGroup = { speaker: null, type: null, channelName: null }
+  const breakGroup = () => { lastGroup = { speaker: null, type: null, channelName: null } }
+
+  for (const msg of messages) {
+    if (msg.isSadam && !includeSadam) continue
+
+    if (msg.type === 'template') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
+      if (!isSameGroup) {
+        if (speaker) parts.push(d('spk', esc(speaker) + ' :'))
+        lastGroup = { speaker, type: 'template', channelName: msg.channelName || null }
+      }
+      parts.push(`<div style="margin:1em 0">${msg.templateHtml}</div>`)
+      continue
+    }
+
+    if (msg.type === 'desc') { breakGroup(); parts.push(d('dsc', msg.content)); continue }
+    if (msg.type === 'emote') { breakGroup(); parts.push(d('emt', msg.content)); continue }
+
+    if (msg.type === 'rollresult') {
+      const speaker = msg.speaker || ''
+      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
+      if (!isSameGroup) {
+        if (speaker) parts.push(d('spk', esc(speaker) + ' :'))
+        lastGroup = { speaker, type: 'rollresult', channelName: msg.channelName || null }
+      }
+      if (msg.formula) parts.push(d('rfml', esc(msg.formula)))
+      if (msg.formattedHtml) parts.push(`<div style="margin:0.2em 0">${msg.formattedHtml}</div>`)
+      if (msg.rolled) parts.push(d('rtot', '= ' + esc(msg.rolled)))
+      continue
+    }
+
+    const msgType = (msg.type === 'hidden' || msg.type === 'whisper') ? 'hidden' : (msg.isSadam ? 'sadam' : 'general')
+    const speaker = msg.speaker || ''
+    const isSameGroup = speaker && speaker === lastGroup.speaker && msgType === lastGroup.type && (msg.channelName || null) === lastGroup.channelName
+
+    if (!isSameGroup) {
+      if (speaker) {
+        const nameCls = msgType === 'hidden' ? 'wspk' : msgType === 'sadam' ? 'sspk' : 'spk'
+        parts.push(d(nameCls, esc(speaker) + ' :'))
+      }
+      lastGroup = { speaker, type: msgType, channelName: msg.channelName || null }
+    }
+
+    if (msg.content) {
+      const cls = msgType === 'hidden' ? 'wdlg' : msgType === 'sadam' ? 'sdlg' : 'dlg'
+      parts.push(d(cls, msg.content))
+    }
+  }
+
+  return `<style>${css}</style><div class="${W}">${parts.join('\n')}</div>`
 }
 
 
@@ -436,7 +518,7 @@ function esc(str) {
 
 // ─── CSS ─────────────────────────────────────────────────────────
 
-const epubCss = `
+export const epubCss = `
 body {
   font-family: "Noto Serif KR", "Source Han Serif KR", Georgia, serif;
   font-size: 1em;

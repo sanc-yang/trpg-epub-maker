@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer, CheckCircle, AlertCircle } from 'lucide-react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { Sun, Moon, FileText, FolderOpen, Check, BookOpen, Dices, Theater, X, Download, Printer, CheckCircle, AlertCircle, Clipboard } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
-import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
-import { generateEpub, generatePreviewHtml } from './utils/generateEpub'
+import { parseCcfoliaHtml } from './utils/parseCcfolia'
+import { generateEpub, generatePreviewHtml, messagesToHtml, epubCss, messagesToBlogHtml } from './utils/generateEpub'
 import './App.css'
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])
@@ -24,23 +24,63 @@ const AVATAR_SIZE = 36
 
 const R20_BORDER = '1px solid rgba(0,0,0,0.06)'
 
+const ROLL20_CSS = `
+.r20-desc{padding:10px 40px 10px 54px;text-align:center;word-break:keep-all;}
+.r20-desc-text{font-style:italic;font-weight:bold;}
+.r20-sadam{background:rgba(0,0,0,0.04);opacity:0.75;font-size:0.9em;word-break:keep-all;}
+.r20-row{display:flex;gap:10px;word-break:keep-all;}
+.r20-avatar-col{width:36px;flex-shrink:0;}
+.r20-avatar-box{width:36px;height:36px;border-radius:4px;overflow:hidden;}
+.r20-avatar-img{width:100%;height:100%;object-fit:cover;}
+.r20-content{flex:1;min-width:0;text-align:left;}
+.r20-speaker{font-weight:bold;font-size:0.85em;margin-bottom:2px;color:#333;}
+.r20-formula{font-size:0.82em;color:#666;}
+.r20-rolled{font-weight:bold;}
+.r20-content img{max-width:100%!important;height:auto!important;}
+#roll20-preview-msgs img{max-width:100%!important;height:auto!important;}
+`
+
+const CCFOLIA_CSS = `
+.ccf-desc{padding:8px 14px;text-align:center;font-style:italic;font-weight:bold;font-size:0.85em;line-height:1.65;background:rgba(255,255,255,0.02);word-break:keep-all;}
+.ccf-desc--emote{color:#ffa040;}
+.ccf-desc--gm{color:#ddd;}
+.ccf-row{display:flex;gap:10px;word-break:keep-all;}
+.ccf-sadam{background:rgba(255,255,255,0.08);opacity:0.7;}
+.ccf-avatar-col{width:44px;flex-shrink:0;}
+.ccf-avatar-box{width:44px;height:44px;border-radius:6px;overflow:hidden;background:#2a2a3a;display:flex;align-items:center;justify-content:center;}
+.ccf-avatar-img{width:100%;height:100%;object-fit:cover;}
+.ccf-gm-label{color:#fff;font-weight:700;font-size:0.85em;}
+.ccf-content{flex:1;min-width:0;}
+.ccf-speaker-row{margin-bottom:3px;display:flex;align-items:baseline;gap:8px;}
+.ccf-speaker{font-weight:bold;font-size:0.88em;}
+.ccf-badge{font-size:0.7em;border-radius:3px;padding:0 4px;}
+.ccf-badge--sadam{color:#666;border:1px solid #3a3a3a;}
+.ccf-badge--hidden{color:#c06060;border:1px solid #553333;}
+.ccf-badge--whisper{color:#b8a800;border:1px solid #554400;}
+.ccf-text{color:#d4d4d4;line-height:1.65;word-break:keep-all;white-space:pre-wrap;text-align:left;}
+.ccf-text--sadam{font-size:0.8em;}
+.ccf-text--normal{font-size:0.88em;}
+.ccf-roll{background:rgba(255,255,255,0.05);border-radius:6px;padding:6px 10px;display:inline-block;}
+.ccf-formula{font-size:0.75em;color:#888;margin-bottom:3px;}
+.ccf-rolled{font-weight:bold;color:#ffd080;font-size:1.1em;}
+.ccf-template{border-radius:4px;text-align:left;}
+.ccf-content img{max-width:100%!important;height:auto!important;}
+#ccfolia-preview-msgs img{max-width:100%!important;height:auto!important;}
+`
+
 function MessageRow({ msg, isContinuation, isLastInGroup }) {
   const isCentered = msg.type === 'desc' || msg.type === 'emote'
 
-  // desc / emote: 아바타 없이 원래 스타일 유지
   if (isCentered) {
     const isDesc = msg.type === 'desc'
     return (
-      <div style={{
+      <div className="r20-desc" style={{
         background: isDesc ? 'rgba(0,0,0,0.04)' : (TYPE_COLOR[msg.type] || '#fff'),
-        padding: '6px 10px 6px ' + (AVATAR_SIZE + 18) + 'px',
-        textAlign: 'center',
         color: isDesc ? '#000' : '#8b4b1a',
         borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
         {msg.content && (
-          <span style={{ fontStyle: 'italic', fontWeight: 'bold' }}
-            dangerouslySetInnerHTML={{ __html: msg.content }} />
+          <span className="r20-desc-text" dangerouslySetInnerHTML={{ __html: msg.content }} />
         )}
       </div>
     )
@@ -50,20 +90,18 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
   const isSadam = msg.isSadam
 
   const contentBlock = (
-    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+    <div className="r20-content">
       {!isContinuation && msg.speaker && (
-        <div style={{ fontWeight: 'bold', fontSize: '0.85em', marginBottom: 2, color: '#333' }}>
-          {msg.speaker}
-        </div>
+        <div className="r20-speaker">{msg.speaker}</div>
       )}
       {msg.type === 'template' && (
         <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
       )}
       {msg.type === 'rollresult' && (
         <>
-          {msg.formula && <div style={{ fontSize: '0.82em', color: '#666' }}>{msg.formula}</div>}
+          {msg.formula && <div className="r20-formula">{msg.formula}</div>}
           {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
-          {msg.rolled && <div style={{ fontWeight: 'bold' }}>= {msg.rolled}</div>}
+          {msg.rolled && <div className="r20-rolled">= {msg.rolled}</div>}
         </>
       )}
       {msg.content && msg.type !== 'template' && msg.type !== 'rollresult' && (
@@ -72,14 +110,10 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
     </div>
   )
 
-  // 사담: 아바타 컬럼 없이 들여쓰기만
   if (isSadam) {
     return (
-      <div style={{
-        padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${AVATAR_SIZE + 18}px`,
-        background: 'rgba(0,0,0,0.04)',
-        opacity: 0.75,
-        fontSize: '0.9em',
+      <div data-sadam="true" className="r20-sadam" style={{
+        padding: isContinuation && !isLastInGroup ? `3px 10px 3px ${AVATAR_SIZE + 18}px` : `${isContinuation ? 2 : 10}px 10px ${isLastInGroup ? 10 : 3}px ${AVATAR_SIZE + 18}px`,
         borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
         {contentBlock}
@@ -87,23 +121,16 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
     )
   }
 
-  // 일반: 아바타 컬럼 있음, iconUrl 없으면 빈 공간만
   return (
-    <div style={{
-      display: 'flex',
-      gap: 10,
-      padding: isContinuation ? '2px 10px' : '6px 10px',
+    <div className="r20-row" style={{
+      padding: isContinuation && !isLastInGroup ? '3px 10px' : `${isContinuation ? 2 : 10}px 10px ${isLastInGroup ? 10 : 3}px`,
       background: bg,
       borderBottom: isLastInGroup ? R20_BORDER : 'none',
     }}>
-      <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
+      <div className="r20-avatar-col">
         {!isContinuation && msg.iconUrl && (
-          <div style={{
-            width: AVATAR_SIZE, height: AVATAR_SIZE,
-            borderRadius: 4, overflow: 'hidden',
-            background: '#d8d8d8',
-          }}>
-            <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+          <div className="r20-avatar-box">
+            <img src={msg.iconUrl} alt="" className="r20-avatar-img" onError={e => { e.target.style.display = 'none' }} />
           </div>
         )}
       </div>
@@ -112,6 +139,23 @@ function MessageRow({ msg, isContinuation, isLastInGroup }) {
   )
 }
 
+
+// ─── 스피너 ─────────────────────────────────────────────────────
+function Spinner({ size = 14, color = 'currentColor' }) {
+  return (
+    <>
+      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{
+        width: size, height: size, flexShrink: 0,
+        border: `2px solid transparent`,
+        borderTopColor: color, borderRightColor: color,
+        borderRadius: '50%',
+        animation: '_spin 0.7s linear infinite',
+        display: 'inline-block',
+      }} />
+    </>
+  )
+}
 
 // ─── 토스트 ─────────────────────────────────────────────────────
 function Toast({ toasts }) {
@@ -172,107 +216,162 @@ function CoverPreview({ coverImage, coverTitle, coverAuthor }) {
 
 const CC_BORDER = '1px solid rgba(255,255,255,0.03)'
 
+// ─── 코코포리아 아바타 관리 모달 ────────────────────────────────
+function CcfoliaAvatarManager({ messages, avatars, setAvatars, onClose, t }) {
+  const speakers = [...new Set(
+    messages.map(m => m.speaker).filter(s => s && s !== 'GM')
+  )]
+
+  const handleFile = (speaker, file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = e => setAvatars(prev => ({ ...prev, [speaker]: e.target.result }))
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+    }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{
+        background: t.surface, borderRadius: 16, padding: 24,
+        width: '90%', maxWidth: 480, maxHeight: '80vh',
+        display: 'flex', flexDirection: 'column', gap: 16,
+        boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.95em', color: t.text }}>프로필 인장 관리</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {speakers.length === 0 && (
+            <div style={{ color: t.textSub, fontSize: '0.85em', textAlign: 'center', padding: '24px 0' }}>
+              화자 정보가 없습니다.
+            </div>
+          )}
+          {speakers.map(speaker => {
+            const url = avatars[speaker]
+            return (
+              <div key={speaker} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 12px', borderRadius: 10,
+                border: `1px solid ${t.borderSub}`, background: t.glass,
+              }}>
+                {/* 아바타 미리보기 */}
+                <div style={{
+                  width: 44, height: 44, borderRadius: 8, flexShrink: 0,
+                  background: '#2a2a3a', overflow: 'hidden',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {url
+                    ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span style={{ color: '#666', fontSize: '0.7em' }}>없음</span>
+                  }
+                </div>
+
+                {/* 화자명 */}
+                <span style={{ flex: 1, fontSize: '0.9em', color: t.text, fontWeight: 500 }}>{speaker}</span>
+
+                {/* 버튼 */}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <label style={{
+                    padding: '5px 12px', borderRadius: 7, fontSize: '0.8em', fontWeight: 600,
+                    background: t.accent, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                    {url ? '변경' : '업로드'}
+                    <input type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => handleFile(speaker, e.target.files[0])} />
+                  </label>
+                  {url && (
+                    <button onClick={() => setAvatars(prev => { const n = { ...prev }; delete n[speaker]; return n })} style={{
+                      padding: '5px 10px', borderRadius: 7, fontSize: '0.8em',
+                      border: `1px solid ${t.borderSub}`, background: 'transparent',
+                      color: t.textSub, cursor: 'pointer',
+                    }}>삭제</button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <button onClick={onClose} style={{
+          padding: '8px 0', borderRadius: 8, border: `1px solid ${t.borderSub}`,
+          background: 'transparent', color: t.textSub, fontSize: '0.85em', cursor: 'pointer',
+        }}>닫기</button>
+      </div>
+    </div>
+  )
+}
+
 // ─── 코코포리아 스타일 메시지 행 ─────────────────────────────────
 function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
-  const AVATAR_W = 44
-
-  // desc/emote: 아바타 없이 중앙 정렬 GM 지문
   if (msg.type === 'desc' || msg.type === 'emote') {
     return (
-      <div style={{
-        padding: '8px 14px',
-        textAlign: 'center',
-        color: msg.type === 'emote' ? '#ffa040' : '#ddd',
-        fontStyle: 'italic',
-        fontWeight: 'bold',
-        fontSize: '0.85em',
-        lineHeight: 1.65,
+      <div className={`ccf-desc ${msg.type === 'emote' ? 'ccf-desc--emote' : 'ccf-desc--gm'}`} style={{
         borderBottom: isLastInGroup ? CC_BORDER : 'none',
-        background: 'rgba(255,255,255,0.02)',
       }}>
         <span dangerouslySetInnerHTML={{ __html: msg.content }} />
       </div>
     )
   }
 
-  // type별 본문 블록
   let contentBlock
   if (msg.type === 'template') {
     contentBlock = (
-      <div style={{ borderRadius: 4 }}>
+      <div className="ccf-template">
         <div dangerouslySetInnerHTML={{ __html: msg.templateHtml }} />
       </div>
     )
   } else if (msg.type === 'rollresult') {
     contentBlock = (
-      <div style={{
-        background: 'rgba(255,255,255,0.05)', borderRadius: 6,
-        padding: '6px 10px', display: 'inline-block',
-      }}>
-        {msg.formula && <div style={{ fontSize: '0.75em', color: '#888', marginBottom: 3 }}>{msg.formula}</div>}
+      <div className="ccf-roll">
+        {msg.formula && <div className="ccf-formula">{msg.formula}</div>}
         {msg.formattedHtml && <div dangerouslySetInnerHTML={{ __html: msg.formattedHtml }} />}
-        {msg.rolled && <div style={{ fontWeight: 'bold', color: '#ffd080', fontSize: '1.1em' }}>= {msg.rolled}</div>}
+        {msg.rolled && <div className="ccf-rolled">= {msg.rolled}</div>}
       </div>
     )
   } else {
     contentBlock = (
-      <div style={{
-        color: '#d4d4d4',
-        fontSize: msg.isSadam ? '0.8em' : '0.88em',
-        lineHeight: 1.65,
-        wordBreak: 'break-word',
-        whiteSpace: 'pre-wrap',
-        textAlign: 'left',
-      }}
+      <div className={`ccf-text ${msg.isSadam ? 'ccf-text--sadam' : 'ccf-text--normal'}`}
         dangerouslySetInnerHTML={{ __html: msg.content }}
       />
     )
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      gap: 10,
-      padding: isContinuation ? '2px 14px' : '10px 14px 6px',
-      background: msg.isSadam ? 'rgba(255,255,255,0.08)' : 'transparent',
-      opacity: msg.isSadam ? 0.7 : 1,
-      borderBottom: isLastInGroup ? CC_BORDER : 'none',
-    }}>
-      {/* 아바타 자리 */}
-      <div style={{ width: AVATAR_W, flexShrink: 0 }}>
+    <div data-sadam={msg.isSadam ? 'true' : undefined}
+      className={`ccf-row${msg.isSadam ? ' ccf-sadam' : ''}`}
+      style={{
+        padding: isContinuation ? '2px 14px' : '10px 14px 6px',
+        borderBottom: isLastInGroup ? CC_BORDER : 'none',
+      }}>
+      <div className="ccf-avatar-col">
         {!isContinuation && (
-          <div style={{
-            width: AVATAR_W, height: AVATAR_W,
-            borderRadius: 6, overflow: 'hidden',
-            background: '#2a2a3a',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
+          <div className="ccf-avatar-box">
             {msg.iconUrl
-              ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+              ? <img src={msg.iconUrl} alt="" className="ccf-avatar-img" onError={e => { e.target.style.display = 'none' }} />
               : msg.speaker === 'GM'
-                ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
+                ? <span className="ccf-gm-label">GM</span>
                 : null
             }
           </div>
         )}
       </div>
-
-      {/* 본문 */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="ccf-content">
         {!isContinuation && (
-          <div style={{ marginBottom: 3, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ color: msg.charColor || '#7eb8d4', fontWeight: 'bold', fontSize: '0.88em' }}>
+          <div className="ccf-speaker-row">
+            <span className="ccf-speaker" style={{ color: msg.charColor || '#7eb8d4' }}>
               {msg.speaker || '(이름 없음)'}
             </span>
-            {msg.isSadam && (
-              <span style={{ color: '#666', fontSize: '0.7em', border: '1px solid #3a3a3a', borderRadius: 3, padding: '0 4px' }}>사담</span>
-            )}
-            {msg.type === 'hidden' && (
-              <span style={{ color: '#c06060', fontSize: '0.7em', border: '1px solid #553333', borderRadius: 3, padding: '0 4px' }}>숨김</span>
-            )}
-            {msg.type === 'whisper' && (
-              <span style={{ color: '#b8a800', fontSize: '0.7em', border: '1px solid #554400', borderRadius: 3, padding: '0 4px' }}>귓속말</span>
-            )}
+            {msg.isSadam && <span className="ccf-badge ccf-badge--sadam">사담</span>}
+            {msg.type === 'hidden' && <span className="ccf-badge ccf-badge--hidden">숨김</span>}
+            {msg.type === 'whisper' && <span className="ccf-badge ccf-badge--whisper">귓속말</span>}
           </div>
         )}
         {contentBlock}
@@ -298,6 +397,212 @@ function ToggleSwitch({ checked, onChange, label, labelColor, offColor }) {
       </div>
       {label}
     </label>
+  )
+}
+
+// ─── HTML 복사 팝오버 ────────────────────────────────────────────
+const CHUNK_SIZE = 2000 // 섹션당 메시지 수
+
+// base64 이미지를 canvas로 리사이즈+JPEG 압축
+function compressBase64Img(src, quality = 0.82, bgColor = '#ffffff', maxW = 400, maxH = 400) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1)
+      const w = Math.max(1, Math.round(img.naturalWidth * scale))
+      const h = Math.max(1, Math.round(img.naturalHeight * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, w, h)
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => resolve(src) // 실패 시 원본 유지
+    img.src = src
+  })
+}
+
+const EBOOK_FONTS = [
+  {
+    id: 'serif',
+    label: '명조체',
+    stack: '"Noto Serif KR", "Source Han Serif KR", Georgia, serif',
+    preview: '가나다라마바사',
+  },
+  {
+    id: 'sans-serif',
+    label: '고딕체',
+    stack: '"Noto Sans KR", "Apple SD Gothic Neo", sans-serif',
+    preview: '가나다라마바사',
+  },
+]
+
+const EBOOK_CHUNK = 10000
+
+function EbookFontPopover({ font, setFont, onCopy, onClose, t, chunkCount }) {
+  const [copied, setCopied] = useState(null)
+  const [copying, setCopying] = useState(null)
+
+  const handleCopy = async (i) => {
+    if (copying !== null) return
+    setCopying(i)
+    await onCopy(font, i)
+    setCopying(null)
+    setCopied(i)
+    setTimeout(() => setCopied(null), 1800)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
+        background: '#fff',
+        border: `1px solid ${t.glassBorder}`, borderRadius: 12,
+        padding: '14px 16px', width: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+      }}
+    >
+      <div style={{ fontSize: '0.8em', color: t.textSub, marginBottom: 10, textAlign: 'left' }}>폰트 선택</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+        {EBOOK_FONTS.map(f => (
+          <label key={f.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer', padding: '8px 10px', borderRadius: 8, border: `1.5px solid ${font === f.id ? t.accent : t.borderSub}`, background: font === f.id ? `${t.accent}18` : 'transparent', transition: 'all 0.15s' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="radio" name="ebook-font" value={f.id} checked={font === f.id} onChange={() => setFont(f.id)} style={{ accentColor: t.accent }} />
+              <span style={{ fontSize: '0.85em', color: t.text, fontWeight: 500 }}>{f.label}</span>
+            </div>
+            <span style={{ fontFamily: f.stack, fontSize: '0.95em', color: t.textSub, paddingLeft: 22 }}>{f.preview}</span>
+          </label>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+        {Array.from({ length: chunkCount }, (_, i) => (
+          <button key={i} onClick={() => handleCopy(i)} disabled={copying !== null} style={{ padding: '6px 0', borderRadius: 7, border: 'none', background: copied === i ? '#4caf50' : t.accent, color: '#fff', fontWeight: 600, fontSize: '0.85em', cursor: copying !== null ? 'not-allowed' : 'pointer', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {copied === i ? '복사 완료!' : copying === i ? <><Spinner size={13} color="#fff" />복사 중...</> : chunkCount === 1 ? '복사' : `섹션 ${i + 1} 복사`}
+          </button>
+        ))}
+      </div>
+      <button onClick={onClose} style={{ width: '100%', padding: '5px 0', borderRadius: 7, border: `1px solid ${t.borderSub}`, background: 'transparent', color: t.textSub, fontSize: '0.85em', cursor: 'pointer' }}>
+        닫기
+      </button>
+    </div>
+  )
+}
+
+
+function HtmlCopyPopover({ el, mode, includeSadam, templateCss, viewCss, onClose, toast, t, GLASS, BTN_PRIMARY, BTN_SECONDARY }) {
+  const children = Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
+  const bgColor = mode === 'ccfolia' ? '#0e0e16' : '#ffffff'
+  const total = children.length
+  const chunkCount = Math.ceil(total / CHUNK_SIZE)
+
+  const [copied, setCopied] = useState(null) // 복사된 섹션 인덱스
+  const [copying, setCopying] = useState(null) // 직렬화 중인 섹션 인덱스
+
+  const copyChunk = (i) => {
+    if (copying !== null) return
+    setCopying(i)
+
+    setTimeout(async () => {
+      const imgBg = mode === 'roll20' ? '#e8f4ff' : '#f5f5f5'
+      const slice = children.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE)
+
+      // ── 1. 고유 data: src 수집 ──────────────────────────────────
+      const srcToToken = new Map()
+      slice.forEach(row => {
+        row.querySelectorAll('img[src^="data:"]').forEach(img => {
+          const src = img.getAttribute('src')
+          if (!srcToToken.has(src)) srcToToken.set(src, `__T${srcToToken.size}__`)
+        })
+      })
+
+      // ── 2. src → 토큰으로 교체 (동기, DOM 바로 복구) ───────────
+      const toRestore = []
+      slice.forEach(row => {
+        row.querySelectorAll('img[src^="data:"]').forEach(img => {
+          const src = img.getAttribute('src')
+          toRestore.push([img, src])
+          img.setAttribute('src', srcToToken.get(src))
+        })
+      })
+
+      // ── 3. 직렬화 (토큰이 짧아서 빠름) ────────────────────────
+      const inner = slice.map(c => c.outerHTML).join('')
+
+      // ── 4. DOM 즉시 복구 ───────────────────────────────────────
+      toRestore.forEach(([img, src]) => img.setAttribute('src', src))
+
+      // ── 5. 고유 이미지만 canvas 압축 ──────────────────────────
+      const tokenToCompressed = new Map()
+      await Promise.all([...srcToToken.entries()].map(async ([src, token]) => {
+        tokenToCompressed.set(token, await compressBase64Img(src, 0.72, imgBg, 400, 400))
+      }))
+
+      // ── 6. 토큰 → 압축 URL 치환 ───────────────────────────────
+      let finalInner = inner
+      tokenToCompressed.forEach((compressed, token) => {
+        finalInner = finalInner.replaceAll(token, compressed)
+      })
+
+      // CSS: img 배경 + rolltemplate 스타일
+      const html = `<style>img{background-color:${imgBg}!important;max-width:100%!important}${viewCss || ''}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
+
+      try {
+        await navigator.clipboard.writeText(html)
+      } catch {
+        const ta = document.createElement('textarea')
+        ta.value = html
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;'
+        document.body.appendChild(ta)
+        ta.focus(); ta.select()
+        document.execCommand('copy')
+        ta.remove()
+      }
+      setCopying(null)
+      setCopied(i)
+      toast(`섹션 ${i + 1} 복사 완료!`)
+      setTimeout(() => setCopied(null), 2000)
+    }, 30)
+  }
+
+  return (
+    <div style={{
+      position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 200,
+      background: '#fff', border: `1px solid ${t.glassBorder}`, borderRadius: 12,
+      padding: '14px 16px', width: 300, boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      <div style={{ fontSize: '0.8em', color: t.textSub, textAlign: 'left' }}>
+        {mode === 'roll20' ? 'Roll20' : '코코포리아'} · {total}개 메시지 · {chunkCount}개 섹션
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+        {Array.from({ length: chunkCount }, (_, i) => {
+          const start = i * CHUNK_SIZE + 1
+          const end = Math.min((i + 1) * CHUNK_SIZE, total)
+          const isCopied = copied === i
+          return (
+            <button key={i} onClick={() => copyChunk(i)} disabled={copying !== null} style={{
+              padding: '7px 12px', borderRadius: 7, border: 'none',
+              background: isCopied ? '#22c55e' : t.accent, color: '#fff',
+              fontWeight: 600, fontSize: '0.85em', cursor: copying !== null ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              transition: 'background 0.2s', opacity: copying !== null && copying !== i ? 0.5 : 1,
+            }}>
+              <span>{chunkCount === 1 ? '복사' : `섹션 ${i + 1}`}</span>
+              <span style={{ opacity: 0.8, fontSize: '0.85em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                {isCopied ? '✓ 복사됨' : copying === i ? <><Spinner size={12} color="#fff" />처리 중...</> : chunkCount > 1 ? `${start}–${end}` : ''}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <button onClick={onClose} style={{
+        padding: '5px 0', borderRadius: 7, border: `1px solid ${t.borderSub}`,
+        background: 'transparent', color: t.textSub, fontSize: '0.85em', cursor: 'pointer',
+      }}>닫기</button>
+    </div>
   )
 }
 
@@ -344,6 +649,13 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = ROLL20_CSS + CCFOLIA_CSS
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [])
+
+  useEffect(() => {
     localStorage.setItem('theme', isDark ? 'dark' : 'light')
     const grad = isDark
       ? 'linear-gradient(135deg, #0f0c1e 0%, #1a0f2e 50%, #0c1a2e 100%)'
@@ -377,10 +689,21 @@ export default function App() {
 
   // 플랫폼 선택
   const [source, setSource] = useState(() => localStorage.getItem('trpg_source') || 'roll20') // 'roll20' | 'ccfolia'
-  const [ccfoliaMode, setCcfoliaMode] = useState('url') // 'html' | 'url'
-  const [roomInput, setRoomInput] = useState('')
-  const [isFetching, setIsFetching] = useState(false)
-  const [fetchCount, setFetchCount] = useState(0)
+
+  // HTML 복사 팝오버
+  const [htmlPopover, setHtmlPopover] = useState(null) // null | { mode, html }
+  // eBook 폰트 팝오버
+  const [ebookFontPopover, setEbookFontPopover] = useState(false)
+  const [ebookFont, setEbookFont] = useState('serif') // 'serif' | 'sans-serif'
+  // 코코포리아 아바타 관리
+  const [ccfoliaAvatars, setCcfoliaAvatars] = useState({}) // { speakerName: base64 }
+  const [showAvatarManager, setShowAvatarManager] = useState(false)
+  const messagesWithAvatars = useMemo(() => {
+    if (!Object.keys(ccfoliaAvatars).length) return messages
+    return messages.map(m => (m.speaker && ccfoliaAvatars[m.speaker])
+      ? { ...m, iconUrl: ccfoliaAvatars[m.speaker] }
+      : m)
+  }, [messages, ccfoliaAvatars])
 
   // ─── 파싱 결과 → 상태 반영 ────────────────────────────────────
   const applyParsedResult = useCallback(({ messages: parsed, templateCss: css }, name, isRoll20 = true) => {
@@ -476,23 +799,6 @@ export default function App() {
     reader.readAsText(file, 'utf-8')
   }, [applyParsedResult])
 
-  // ─── 코코포리아 URL 수집 ───────────────────────────────────
-  const handleFetchCcfolia = useCallback(async () => {
-    if (!roomInput.trim() || isFetching) return
-    setIsFetching(true)
-    setIsParsing(true)
-    setFetchCount(0)
-    try {
-      const roomId = extractRoomId(roomInput)
-      const result = await fetchCcfoliaLog(roomId, (count) => setFetchCount(count))
-      applyParsedResult(result, roomId, false)
-    } catch (err) {
-      toast(`가져오기 실패: ${err.message}`, 'error')
-    } finally {
-      setIsFetching(false)
-    }
-  }, [roomInput, isFetching, applyParsedResult])
-
   // ─── 드롭존 공통 ──────────────────────────────────────────
   const handleFileDrop = useCallback((file) => {
     if (source === 'roll20') handleRoll20File(file)
@@ -531,7 +837,7 @@ export default function App() {
     if (!messages.length || isGenerating) return
     setIsGenerating(true)
     try {
-      const blob = await generateEpub(messages, {
+      const blob = await generateEpub(messagesWithAvatars, {
         title, author, coverImage,
         coverTitle: title,
         includeSadam, templateCss,
@@ -547,6 +853,41 @@ export default function App() {
       setIsGenerating(false)
     }
   }, [messages, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss])
+
+  // ─── eBook HTML 복사 ─────────────────────────────────────────
+  const handleCopyEbookHtml = useCallback(async (font, chunkIndex) => {
+    const filtered = messagesWithAvatars.filter(m => includeSadam || !m.isSadam)
+    const slice = chunkIndex !== undefined
+      ? filtered.slice(chunkIndex * EBOOK_CHUNK, (chunkIndex + 1) * EBOOK_CHUNK)
+      : filtered
+    const css = epubCss + (templateCss ? '\n' + templateCss : '')
+    const body = messagesToBlogHtml(slice, true, font)
+    const html = `<style>${css}</style>${body}`
+    try {
+      await navigator.clipboard.writeText(html)
+      toast('eBook HTML 복사 완료!')
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = html
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;'
+      document.body.appendChild(ta)
+      ta.focus(); ta.select()
+      document.execCommand('copy')
+      ta.remove()
+      toast('eBook HTML 복사 완료!')
+    }
+  }, [messagesWithAvatars, includeSadam, templateCss, toast])
+
+  // ─── HTML 복사 팝오버 열기 ───────────────────────────────────
+  const handleCopyHtml = useCallback((mode) => {
+    const id = mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs'
+    const el = document.getElementById(id)
+    if (!el) return
+    setHtmlPopover(prev => (prev?.mode === mode ? null : {
+      mode, el, templateCss,
+      viewCss: mode === 'roll20' ? ROLL20_CSS : CCFOLIA_CSS,
+    }))
+  }, [templateCss])
 
   // ─── PDF 다운로드 ─────────────────────────────────────────────
   const handlePdf = useCallback((mode) => {
@@ -611,13 +952,6 @@ export default function App() {
     textTransform: 'uppercase', color: t.textSub, margin: '0 0 18px',
   }
 
-  // 코코포리아 URL 유효성 검사
-  const roomTrimmed = roomInput.trim()
-  const roomUrlValid = /ccfolia\.com\/rooms\/[a-zA-Z0-9_-]{4,}/.test(roomTrimmed)
-  const roomIdValid = /^[a-zA-Z0-9_-]{4,}$/.test(roomTrimmed)
-  const roomValid = roomUrlValid || roomIdValid
-  const roomInvalidMsg = roomTrimmed.length > 0 && !roomValid
-
   return (
     <div style={{
       fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -659,55 +993,9 @@ export default function App() {
         ))}
       </div>
 
-      {/* ── 코코포리아 입력 방식 ── */}
-      {source === 'ccfolia' && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {[['url', 'URL로 가져오기'], ['html', 'HTML 업로드']].map(([key, label]) => (
-              <button key={key} onClick={() => setCcfoliaMode(key)} style={{
-                ...BTN_SECONDARY,
-                background: ccfoliaMode === key ? t.accent : t.surface,
-                color: ccfoliaMode === key ? t.accentFg : t.textSub,
-                border: `1px solid ${ccfoliaMode === key ? t.accent : t.border}`,
-                fontWeight: ccfoliaMode === key ? 600 : 400,
-              }}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {ccfoliaMode === 'url' && (
-            <div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input
-                  value={roomInput} onChange={e => setRoomInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && roomValid && handleFetchCcfolia()}
-                  placeholder="방 URL 또는 방 ID (예: https://ccfolia.com/rooms/abc123)"
-                  style={{ ...INP, flex: 1, borderColor: roomInvalidMsg ? '#ef4444' : t.inputBorder }}
-                  disabled={isFetching}
-                />
-                <button onClick={handleFetchCcfolia} disabled={isFetching || !roomValid} style={{
-                  ...BTN_PRIMARY, opacity: (isFetching || !roomValid) ? 0.5 : 1,
-                  cursor: (isFetching || !roomValid) ? 'not-allowed' : 'pointer',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
-                </button>
-              </div>
-              {roomTrimmed.length > 0 && (
-                <div style={{ fontSize: '0.78em', marginTop: 6, color: roomValid ? '#22c55e' : '#ef4444', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {roomValid
-                    ? <><Check size={12} /> 유효한 {roomUrlValid ? 'URL' : '방 ID'}입니다</>
-                    : <span>유효한 ccfolia URL 또는 방 ID를 입력해주세요</span>
-                  }
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── 드롭존 ── */}
-      {(source === 'roll20' || ccfoliaMode === 'html') && (
+      {(source === 'roll20' || source === 'ccfolia') && (
         <div
           onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
           onClick={() => document.getElementById('fileInput').click()}
@@ -736,10 +1024,6 @@ export default function App() {
         </div>
       )}
 
-      {/* URL 수집 완료 */}
-      {source === 'ccfolia' && ccfoliaMode === 'url' && fileName && (
-        <p style={{ fontSize: '0.84em', color: t.textSub, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 5 }}><Check size={13} /> {fileName} 수집 완료</p>
-      )}
 
       {/* ── 통계 ── */}
       {stats && (
@@ -783,6 +1067,11 @@ export default function App() {
           <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
+          {source === 'ccfolia' && (
+            <button onClick={() => setShowAvatarManager(true)} style={{ ...BTN_SECONDARY, marginBottom: 12, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 6 }}>
+              프로필 인장 관리
+            </button>
+          )}
           <div style={{ display: 'flex', gap: 10 }}>
             {[
               ['epub', <BookOpen size={20} strokeWidth={1.5} />, 'eBook 스타일'],
@@ -873,14 +1162,29 @@ export default function App() {
           <div style={{ ...GLASS, borderRadius: 16, overflow: 'hidden', marginBottom: 32 }}>
             <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => setEbookFontPopover(v => !v)} style={{ ...BTN_SECONDARY, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clipboard size={13} />HTML 복사
+                  </button>
+                  {ebookFontPopover && (
+                    <EbookFontPopover
+                      font={ebookFont}
+                      setFont={setEbookFont}
+                      onCopy={(f, i) => handleCopyEbookHtml(f, i)}
+                      onClose={() => setEbookFontPopover(false)}
+                      t={t}
+                      chunkCount={Math.ceil(messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length / EBOOK_CHUNK) || 1}
+                    />
+                  )}
+                </div>
                 <button onClick={handleDownload} disabled={isGenerating} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer' }}>
-                  {isGenerating ? '생성 중...' : <><Download size={13} style={{ marginRight: 5 }} />epub 다운로드</>}
+                  {isGenerating ? <><Spinner size={13} color="#fff" /> 생성 중...</> : <><Download size={13} style={{ marginRight: 5 }} />epub 다운로드</>}
                 </button>
               </div>
             </div>
-            <iframe srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss })}
+            <iframe srcDoc={generatePreviewHtml(messagesWithAvatars, { title, includeSadam, templateCss })}
               style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
               title="eBook 본문 미리보기"
             />
@@ -894,10 +1198,18 @@ export default function App() {
           <div style={{ ...GLASS, borderRadius: 16, overflow: 'hidden', marginTop: 8 }}>
             <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: t.textSub }}>Roll20 스타일 미리보기</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-                <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
-                  <><Printer size={13} style={{ marginRight: 5 }} />PDF 다운로드</>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => handleCopyHtml('roll20')} style={{ ...BTN_SECONDARY, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clipboard size={13} />HTML 복사
+                  </button>
+                  {htmlPopover?.mode === 'roll20' && (
+                    <HtmlCopyPopover el={htmlPopover.el} mode="roll20" includeSadam={includeSadam} templateCss={htmlPopover.templateCss} viewCss={htmlPopover.viewCss} onClose={() => setHtmlPopover(null)} toast={toast} t={t} GLASS={GLASS} BTN_PRIMARY={BTN_PRIMARY} BTN_SECONDARY={BTN_SECONDARY} />
+                  )}
+                </div>
+                <button onClick={() => handlePdf('roll20')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Printer size={13} />PDF 다운로드
                 </button>
               </div>
             </div>
@@ -905,7 +1217,7 @@ export default function App() {
               {(() => {
                 let lastSpeaker = ''
                 let lastChannel = ''
-                const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
+                const filtered = messagesWithAvatars.filter(msg => !(msg.isSadam && !includeSadam))
                 const annotated = filtered.map(msg => {
                   const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker && (msg.channelName || '') === lastChannel
                   lastSpeaker = msg.speaker
@@ -929,10 +1241,18 @@ export default function App() {
             <style>{`#ccfolia-preview-msgs img { background: #f5f5f5; }`}</style>
             <div style={{ background: t.glass, backdropFilter: 'blur(18px)', padding: '8px 16px', borderBottom: `1px solid ${t.glassBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.78em', color: '#555' }}>코코포리아 스타일 미리보기</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-                <button onClick={() => handlePdf('ccfolia')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em' }}>
-                  <><Printer size={13} style={{ marginRight: 5 }} />PDF 다운로드</>
+                <div style={{ position: 'relative' }}>
+                  <button onClick={() => handleCopyHtml('ccfolia')} style={{ ...BTN_SECONDARY, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Clipboard size={13} />HTML 복사
+                  </button>
+                  {htmlPopover?.mode === 'ccfolia' && (
+                    <HtmlCopyPopover el={htmlPopover.el} mode="ccfolia" includeSadam={includeSadam} templateCss={htmlPopover.templateCss} viewCss={htmlPopover.viewCss} onClose={() => setHtmlPopover(null)} toast={toast} t={t} GLASS={GLASS} BTN_PRIMARY={BTN_PRIMARY} BTN_SECONDARY={BTN_SECONDARY} />
+                  )}
+                </div>
+                <button onClick={() => handlePdf('ccfolia')} style={{ ...BTN_PRIMARY, padding: '5px 14px', fontSize: '0.82em', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Printer size={13} />PDF 다운로드
                 </button>
               </div>
             </div>
@@ -940,7 +1260,7 @@ export default function App() {
               {(() => {
                 let lastSpeaker = ''
                 let lastChannel = ''
-                const filtered = messages.filter(msg => !(msg.isSadam && !includeSadam))
+                const filtered = messagesWithAvatars.filter(msg => !(msg.isSadam && !includeSadam))
                 const annotated = filtered.map(msg => {
                   const isContinuation = !!msg.speaker && msg.speaker === lastSpeaker && msg.channelName === lastChannel
                   lastSpeaker = msg.speaker
@@ -955,6 +1275,15 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+      {showAvatarManager && (
+        <CcfoliaAvatarManager
+          messages={messages}
+          avatars={ccfoliaAvatars}
+          setAvatars={setCcfoliaAvatars}
+          onClose={() => setShowAvatarManager(false)}
+          t={t}
+        />
       )}
       <Toast toasts={toasts} />
     </div>
