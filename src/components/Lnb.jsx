@@ -67,7 +67,7 @@ function NavItem({ item, active, collapsed, onSelect, t }) {
         <span style={{
           marginLeft: 'auto', fontSize: '0.72em', border: `1px solid ${t.borderSub}`,
           borderRadius: 4, padding: '1px 5px', color: t.textMuted,
-        }}>준비중</span>
+        }}>개발중</span>
       )}
     </button>
   )
