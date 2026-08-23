@@ -1,14 +1,58 @@
-import { useRef } from 'react'
-import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Printer } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Printer, Clipboard } from 'lucide-react'
 import { glass, styles } from '../theme'
 import SegControl from '../components/SegControl'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
+import CopyChunksPopover from '../components/CopyChunksPopover'
 import { MessageRow, CcfoliaMessageRow } from '../components/MessageRows'
 import { annotate } from '../utils/annotateMessages'
-import { generatePreviewHtml } from '../utils/generateEpub'
+import { generatePreviewHtml, messagesToBlogHtml } from '../utils/generateEpub'
+import { compressBase64Img, copyHtmlToClipboard } from '../utils/htmlCopy'
 import { SHOW_CCFOLIA_URL_MODE } from '../featureFlags'
 import PageHeader from '../components/PageHeader'
+
+const HTML_CHUNK_SIZE = 2000 // Roll20/코코포리아 HTML 복사 — 섹션당 메시지 수
+const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
+
+// Roll20/코코포리아 미리보기 DOM → 클립보드용 HTML (이미지 압축 포함)
+async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, imgBg }) {
+  const el = document.getElementById(elId)
+  if (!el) return
+  const children = Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
+  const slice = children.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
+
+  // 고유 data: 이미지만 모아 압축 (같은 이미지 중복 압축 방지)
+  const srcToToken = new Map()
+  slice.forEach(row => {
+    row.querySelectorAll('img[src^="data:"]').forEach(img => {
+      const src = img.getAttribute('src')
+      if (!srcToToken.has(src)) srcToToken.set(src, `__T${srcToToken.size}__`)
+    })
+  })
+
+  const toRestore = []
+  slice.forEach(row => {
+    row.querySelectorAll('img[src^="data:"]').forEach(img => {
+      const src = img.getAttribute('src')
+      toRestore.push([img, src])
+      img.setAttribute('src', srcToToken.get(src))
+    })
+  })
+
+  const inner = slice.map(c => c.outerHTML).join('')
+  toRestore.forEach(([img, src]) => img.setAttribute('src', src))
+
+  const tokenToCompressed = new Map()
+  await Promise.all([...srcToToken.entries()].map(async ([src, token]) => {
+    tokenToCompressed.set(token, await compressBase64Img(src, 0.72, imgBg, 400, 400))
+  }))
+  let finalInner = inner
+  tokenToCompressed.forEach((compressed, token) => { finalInner = finalInner.replaceAll(token, compressed) })
+
+  const html = `<style>img{background-color:${imgBg}!important;max-width:100%!important}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
+  await copyHtmlToClipboard(html)
+}
 
 const STAT_ROWS = {
   roll20: (s, t) => [
@@ -25,17 +69,39 @@ const STAT_ROWS = {
 
 export default function ConvertPage({ app }) {
   const {
-    t, source, switchSource, ccfoliaMode, setCcfoliaMode,
+    t, toast, source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, fileName, stats, isParsing, messages,
+    handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, templateCss, isGenerating, handleDownload, handlePdf,
+    setShowAvatarManager,
   } = app
 
   const S = styles(t)
   const G = glass(t)
   const modeRef = useRef(null)
+
+  // HTML 복사 팝오버 — 'epub' | 'roll20' | 'ccfolia' | null
+  const [copyPopover, setCopyPopover] = useState(null)
+
+  const handleCopyEbookChunk = async (i) => {
+    const filtered = messagesWithAvatars.filter(m => includeSadam || !m.isSadam)
+    const slice = filtered.slice(i * EBOOK_CHUNK_SIZE, (i + 1) * EBOOK_CHUNK_SIZE)
+    const html = `<style>${templateCss || ''}</style>${messagesToBlogHtml(slice, true, bodyFont)}`
+    await copyHtmlToClipboard(html)
+    toast(`eBook HTML 섹션 ${i + 1} 복사 완료!`)
+  }
+
+  const handleCopyPreviewChunk = async (mode, i) => {
+    await copyPreviewChunk({
+      elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
+      chunkIndex: i, includeSadam, templateCss,
+      bgColor: mode === 'ccfolia' ? '#0e0e16' : '#ffffff',
+      imgBg: mode === 'roll20' ? '#e8f4ff' : '#f5f5f5',
+    })
+    toast(`섹션 ${i + 1} 복사 완료!`)
+  }
 
   // 코코포리아 방 입력 유효성
   const roomTrimmed = roomInput.trim()
@@ -44,7 +110,7 @@ export default function ConvertPage({ app }) {
   const roomValid = roomUrlValid || roomIdValid
   const roomInvalidMsg = roomTrimmed.length > 0 && !roomValid
 
-  const previewRows = annotate(messages, includeSadam)
+  const previewRows = annotate(messagesWithAvatars, includeSadam)
 
   return (
     <>
@@ -163,6 +229,13 @@ export default function ConvertPage({ app }) {
           <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
+          {source === 'ccfolia' && (
+            <button type="button" onClick={() => setShowAvatarManager(true)} style={{
+              ...S.btnSecondary, marginBottom: 12, padding: '5px 14px', fontSize: '0.82em',
+            }}>
+              프로필 인장 관리
+            </button>
+          )}
           <div className="mode-grid">
             {[
               ['epub', BookOpen, 'eBook 스타일'],
@@ -200,6 +273,23 @@ export default function ConvertPage({ app }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <SegControl value={bodyFont} onChange={setBodyFont} options={[['gothic', '고딕'], ['serif', '명조']]} t={t} />
               <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+              <div style={{ position: 'relative' }}>
+                <button type="button" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
+                  ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                  display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                }}>
+                  <Clipboard size={13} />HTML 복사
+                </button>
+                {copyPopover === 'epub' && (
+                  <CopyChunksPopover
+                    label={`eBook · ${messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length}개 메시지`}
+                    chunkCount={Math.ceil(messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length / EBOOK_CHUNK_SIZE) || 1}
+                    onCopyChunk={handleCopyEbookChunk}
+                    onClose={() => setCopyPopover(null)}
+                    accent={t.accent} accentFg={t.accentFg}
+                  />
+                )}
+              </div>
               <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
                 ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
                 opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
@@ -210,7 +300,7 @@ export default function ConvertPage({ app }) {
             </div>
           </div>
           <iframe
-            srcDoc={generatePreviewHtml(messages, { title, includeSadam, templateCss, bodyFont })}
+            srcDoc={generatePreviewHtml(messagesWithAvatars, { title, includeSadam, templateCss, bodyFont })}
             style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
             title="eBook 본문 미리보기"
           />
@@ -230,6 +320,26 @@ export default function ConvertPage({ app }) {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
+                <div style={{ position: 'relative' }}>
+                  <button type="button" onClick={() => setCopyPopover(v => v === selectedMode ? null : selectedMode)} style={{
+                    ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                    display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                  }}>
+                    <Clipboard size={13} />HTML 복사
+                  </button>
+                  {copyPopover === selectedMode && (() => {
+                    const total = previewRows.length
+                    return (
+                      <CopyChunksPopover
+                        label={`${isR20 ? 'Roll20' : '코코포리아'} · ${total}개 메시지`}
+                        chunkCount={Math.ceil(total / HTML_CHUNK_SIZE) || 1}
+                        onCopyChunk={(i) => handleCopyPreviewChunk(selectedMode, i)}
+                        onClose={() => setCopyPopover(null)}
+                        accent={t.accent} accentFg={t.accentFg}
+                      />
+                    )
+                  })()}
+                </div>
                 <button type="button" onClick={() => handlePdf(selectedMode)} style={{
                   ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
                   display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',

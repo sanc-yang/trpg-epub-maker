@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
@@ -8,6 +8,7 @@ import { makeTheme, styles } from './theme'
 import { useMediaQuery } from './hooks'
 import { SHOW_THEME_TOGGLE } from './featureFlags'
 import Toast from './components/Toast'
+import CcfoliaAvatarManager from './components/CcfoliaAvatarManager'
 import Lnb, { MobileTopBar } from './components/Lnb'
 import ConvertPage from './pages/ConvertPage'
 import BookInfoPage from './pages/BookInfoPage'
@@ -83,6 +84,16 @@ export default function App() {
   const [isFetching, setIsFetching] = useState(false)
   const [fetchCount, setFetchCount] = useState(0)
 
+  // 코코포리아 프로필 인장(화자별 아바타) — 세션 한정, 저장하지 않음
+  const [ccfoliaAvatars, setCcfoliaAvatars] = useState({}) // { speakerName: base64 }
+  const [showAvatarManager, setShowAvatarManager] = useState(false)
+  const messagesWithAvatars = useMemo(() => {
+    if (!Object.keys(ccfoliaAvatars).length) return messages
+    return messages.map(m => (m.speaker && ccfoliaAvatars[m.speaker])
+      ? { ...m, iconUrl: ccfoliaAvatars[m.speaker] }
+      : m)
+  }, [messages, ccfoliaAvatars])
+
   // ─── 파싱 결과 → 상태 반영 ────────────────────────────────────
   const applyParsedResult = useCallback(({ messages: parsed, templateCss: css }, name, isRoll20 = true) => {
     setIsParsing(false)
@@ -91,6 +102,7 @@ export default function App() {
     setTitle(name.replace(/\.(html|zip)$/i, ''))
     setMessages(parsed)
     setTemplateCss(css || '')
+    setCcfoliaAvatars({})
     setStats({
       total: parsed.length,
       general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
@@ -101,7 +113,7 @@ export default function App() {
       emote: isRoll20 ? parsed.filter(m => m.type === 'emote').length : 0,
       template: isRoll20 ? parsed.filter(m => m.type === 'template').length : 0,
     })
-  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setStats])
+  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setCcfoliaAvatars, setStats])
 
   // ─── Roll20 ──────────────────────────────────────────────────
   const handleRoll20File = useCallback((file) => {
@@ -176,7 +188,7 @@ export default function App() {
     localStorage.setItem('trpg_source', s)
     setSource(s)
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
-    setSelectedMode(null); setIsParsing(false)
+    setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
   }, [])
 
   // ─── 다운로드 ────────────────────────────────────────────────
@@ -184,7 +196,7 @@ export default function App() {
     if (!messages.length || isGenerating) return
     setIsGenerating(true)
     try {
-      const blob = await generateEpub(messages, {
+      const blob = await generateEpub(messagesWithAvatars, {
         title, author, coverImage, coverTitle: title,
         includeSadam, templateCss, bodyFont,
       })
@@ -198,7 +210,7 @@ export default function App() {
     } finally {
       setIsGenerating(false)
     }
-  }, [messages, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss, bodyFont, toast])
+  }, [messages, messagesWithAvatars, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss, bodyFont, toast])
 
   // PDF — 브라우저 인쇄. body 직하에 print 전용 div 를 만들어
   // 글래스 컨테이너의 overflow/containing block 영향을 피함.
@@ -235,11 +247,12 @@ export default function App() {
     t, page, setPage, toast,
     source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, fileName, stats, isParsing, messages, templateCss,
+    handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars, templateCss,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,
     isGenerating, handleDownload, handlePdf,
+    showAvatarManager, setShowAvatarManager,
   }
 
   const Page = PAGES[page] || ConvertPage
@@ -284,6 +297,15 @@ export default function App() {
         </main>
       </div>
 
+      {showAvatarManager && (
+        <CcfoliaAvatarManager
+          messages={messages}
+          avatars={ccfoliaAvatars}
+          setAvatars={setCcfoliaAvatars}
+          onClose={() => setShowAvatarManager(false)}
+          t={t}
+        />
+      )}
       <Toast toasts={toasts} />
     </div>
   )

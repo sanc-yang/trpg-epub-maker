@@ -63,7 +63,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup }) {
   // 사담: 아바타 컬럼 없이 들여쓰기만
   if (isSadam) {
     return (
-      <div style={{
+      <div data-sadam="true" style={{
         padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${AVATAR_SIZE + 18}px`,
         background: 'rgba(0,0,0,0.04)',
         opacity: 0.75,
@@ -160,7 +160,7 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
   }
 
   return (
-    <div style={{
+    <div data-sadam={msg.isSadam ? 'true' : undefined} style={{
       display: 'flex',
       gap: 10,
       padding: isContinuation ? '2px 14px' : '10px 14px 6px',
