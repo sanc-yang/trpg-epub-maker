@@ -218,6 +218,12 @@ export default function App() {
     setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
   }, [source, messages.length, fileName])
 
+  // 드롭존의 X 버튼 — 업로드된 로그를 지우고 초기 화면(빈 드롭존)으로 되돌림
+  const clearLog = useCallback(() => {
+    setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
+    setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
+  }, [])
+
   // ─── 기존 .epub 업로드 (책 정보/표지만 다시 고치기) ────────────
   // 로그 변환 중이던 상태(messages 등)는 절대 건드리지 않음 — 서로 완전히 무관한 플로우.
   const handleEpubUpload = useCallback((file) => {
@@ -271,7 +277,7 @@ export default function App() {
     t, page, setPage, toast,
     source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars, templateCss,
+    handleFileDrop, clearLog, fileName, stats, isParsing, messages, messagesWithAvatars, templateCss,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,

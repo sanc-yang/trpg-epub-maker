@@ -135,7 +135,7 @@ export default function ConvertPage({ app }) {
   const {
     t, toast, source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars,
+    handleFileDrop, clearLog, fileName, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage, setCoverReturnTo,
@@ -149,6 +149,8 @@ export default function ConvertPage({ app }) {
 
   // HTML 복사 팝오버 — 'epub' | 'roll20' | 'ccfolia' | null
   const [copyPopover, setCopyPopover] = useState(null)
+  // 모드 선택 카드 hover — 'epub' | 'roll20' | 'ccfolia' | null
+  const [hoverMode, setHoverMode] = useState(null)
 
   const handleCopyEbookChunk = async (i) => {
     const filtered = messagesWithAvatars.filter(m => includeSadam || !m.isSadam)
@@ -265,6 +267,7 @@ export default function ConvertPage({ app }) {
           t={t} onFile={handleFileDrop} inputId="fileInput"
           accept={source === 'roll20' ? '.zip' : '.html'}
           style={{ marginBottom: 24 }}
+          onClear={fileName ? clearLog : undefined}
           icon={fileName
             ? null
             : <FolderOpen size={26} strokeWidth={1.5} color={t.textSub} style={{ margin: '0 auto 9px', display: 'block' }} />}
@@ -340,26 +343,34 @@ export default function ConvertPage({ app }) {
               ['epub', BookOpen, 'eBook 스타일'],
               ['roll20', Dices, 'Roll20 스타일'],
               ['ccfolia', Theater, '코코포리아 스타일'],
-            ].map(([mode, Icon, label]) => (
+            ].map(([mode, Icon, label]) => {
+              const isSelected = selectedMode === mode
+              const isHover = hoverMode === mode && !isSelected
+              return (
               <button key={mode} type="button"
                 onClick={() => {
                   setSelectedMode(prev => prev === mode ? null : mode)
                   setTimeout(() => modeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
                 }}
+                onMouseEnter={() => setHoverMode(mode)}
+                onMouseLeave={() => setHoverMode(null)}
                 style={{
                   ...G,
-                  background: selectedMode === mode ? t.accent : t.glass,
-                  color: selectedMode === mode ? t.accentFg : t.text,
-                  border: `1px solid ${selectedMode === mode ? t.accent : t.glassBorder}`,
+                  background: isSelected ? t.accent : (isHover ? t.hover : t.glass),
+                  color: isSelected ? t.accentFg : t.text,
+                  border: `1px solid ${isSelected ? t.accent : (isHover ? t.text : t.glassBorder)}`,
                   borderRadius: 16, padding: '15px 12px', cursor: 'pointer',
                   fontFamily: 'inherit', transition: 'all 0.2s',
-                  fontSize: '0.82em', fontWeight: selectedMode === mode ? 600 : 400,
+                  fontSize: '0.82em', fontWeight: isSelected ? 600 : 400,
+                  transform: isHover ? 'translateY(-2px)' : 'none',
+                  boxShadow: isHover ? '0 6px 18px rgba(0,0,0,0.12)' : G.boxShadow,
                 }}
               >
                 <Icon size={19} strokeWidth={1.5} className="mode-icon" />
                 <span>{label}</span>
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
