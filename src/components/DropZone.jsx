@@ -30,8 +30,8 @@ export default function DropZone({
         ...glass(t),
         border: `1.5px dashed ${over ? t.text : t.glassBorder}`,
         background: over
-          ? (t.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.75)')
-          : (t.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.30)'),
+          ? (t.isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.50)')
+          : (t.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.50)'),
         borderRadius: 16,
         padding: pad,
         textAlign: 'center',

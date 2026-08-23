@@ -1,5 +1,14 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+
+// lucide-react 는 브랜드 로고를 제공하지 않아 GitHub 마크만 인라인 SVG로 사용
+function GithubIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1-.02-1.96-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.72.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.58.24 2.75.12 3.04.73.8 1.17 1.83 1.17 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.07.78 2.15 0 1.55-.01 2.8-.01 3.18 0 .3.2.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+    </svg>
+  )
+}
 import { glass } from '../theme'
 import { NAV_GROUPS } from '../navConfig'
 
@@ -56,6 +65,28 @@ function NavItem({ item, active, collapsed, onSelect, t }) {
   )
 }
 
+/** 사이드바 맨 아래 GitHub 링크 */
+function Footer({ collapsed, t }) {
+  return (
+    <a
+      href="https://github.com/sanc-yang"
+      target="_blank" rel="noreferrer"
+      title={collapsed ? 'GitHub' : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: collapsed ? '10px 0' : '9px 11px',
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        borderRadius: 9, textDecoration: 'none', marginTop: 'auto',
+        borderTop: `1px solid ${t.borderSub}`, paddingTop: collapsed ? 14 : 15,
+        color: t.textMuted, fontSize: '0.84em', fontFamily: 'inherit',
+      }}
+    >
+      <GithubIcon size={16} />
+      {!collapsed && <span>GitHub</span>}
+    </a>
+  )
+}
+
 /**
  * 좌측 내비게이션.
  * 데스크톱 = 접기/펼치기 사이드바(접힘 시 아이콘 + title 툴팁)
@@ -73,8 +104,8 @@ export default function Lnb({ page, onSelect, collapsed, onToggleCollapse, isMob
       }}>
         {LOGO}
         {!showCollapsed && (
-          <span style={{ fontSize: '0.86em', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.25 }}>
-            TRPG 세션<br />제본소
+          <span style={{ fontSize: '0.86em', fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+            TRPG 세션 제본소
           </span>
         )}
       </div>
@@ -95,6 +126,8 @@ export default function Lnb({ page, onSelect, collapsed, onToggleCollapse, isMob
           </div>
         </div>
       ))}
+
+      <Footer collapsed={showCollapsed} t={t} />
     </>
   )
 
@@ -169,8 +202,11 @@ export function MobileTopBar({ onOpenDrawer, t }) {
         background: t.surface, color: t.text, display: 'flex', alignItems: 'center',
         justifyContent: 'center', cursor: 'pointer', padding: 0, flexShrink: 0,
       }}><Menu size={17} /></button>
-      <span style={{ fontSize: '0.9em', fontWeight: 800, letterSpacing: '-0.02em', color: t.text }}>
-        TRPG 세션 제본소
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8, color: t.text }}>
+        {LOGO}
+        <span style={{ fontSize: '0.9em', fontWeight: 800, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+          TRPG 세션 제본소
+        </span>
       </span>
     </div>
   )

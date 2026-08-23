@@ -20,16 +20,16 @@ export function makeTheme(isDark) {
   } : {
     isDark: false,
     bg: 'linear-gradient(135deg, #dbeafe 0%, #ede9fe 50%, #fce7f3 100%)',
-    glass: 'rgba(255,255,255,0.55)',
+    glass: 'rgba(255,255,255,0.50)',
     glassBorder: 'rgba(255,255,255,0.80)',
-    surface: 'rgba(255,255,255,0.55)', surfaceAlt: 'rgba(255,255,255,0.35)',
+    surface: 'rgba(255,255,255,0.50)', surfaceAlt: 'rgba(255,255,255,0.50)',
     border: 'rgba(180,180,210,0.45)', borderSub: 'rgba(180,180,210,0.30)',
     text: '#1c1c1e', textSub: '#6c6c70', textMuted: '#aeaeb2',
     accent: '#1c1c1e', accentFg: '#ffffff',
-    inputBg: 'rgba(255,255,255,0.70)', inputBorder: 'rgba(180,180,210,0.55)',
+    inputBg: 'rgba(255,255,255,0.50)', inputBorder: 'rgba(180,180,210,0.55)',
     shadow: '0 4px 28px rgba(100,80,160,0.08)',
     hover: 'rgba(255,255,255,0.50)',
-    drawerBg: 'rgba(255,255,255,0.92)',
+    drawerBg: 'rgba(255,255,255,0.50)',
   }
 }
 

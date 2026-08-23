@@ -95,6 +95,8 @@ export default function App() {
   // 코코포리아 프로필 인장(화자별 아바타) — 세션 한정, 저장하지 않음
   const [ccfoliaAvatars, setCcfoliaAvatars] = useState({}) // { speakerName: base64 }
   const [showAvatarManager, setShowAvatarManager] = useState(false)
+  // 인장 영역 제거 — Roll20/코코포리아 미리보기에서 프로필 이미지 칸 자체를 안 그림
+  const [hideAvatarArea, setHideAvatarArea] = useState(false)
   const messagesWithAvatars = useMemo(() => {
     if (!Object.keys(ccfoliaAvatars).length) return messages
     return messages.map(m => (m.speaker && ccfoliaAvatars[m.speaker])
@@ -262,6 +264,7 @@ export default function App() {
     coverReturnTo, setCoverReturnTo,
     isGenerating, handleDownload, handlePdf,
     showAvatarManager, setShowAvatarManager,
+    hideAvatarArea, setHideAvatarArea,
   }
 
   const Page = PAGES[page] || ConvertPage

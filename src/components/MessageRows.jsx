@@ -12,7 +12,7 @@ const TYPE_COLOR = {
 const AVATAR_SIZE = 36
 const R20_BORDER = '1px solid rgba(0,0,0,0.06)'
 
-export function MessageRow({ msg, isContinuation, isLastInGroup }) {
+export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   const isCentered = msg.type === 'desc' || msg.type === 'emote'
 
   // desc / emote: 아바타 없이 원래 스타일 유지
@@ -84,17 +84,19 @@ export function MessageRow({ msg, isContinuation, isLastInGroup }) {
       background: bg,
       borderBottom: isLastInGroup ? R20_BORDER : 'none',
     }}>
-      <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
-        {!isContinuation && msg.iconUrl && (
-          <div style={{
-            width: AVATAR_SIZE, height: AVATAR_SIZE,
-            borderRadius: 4, overflow: 'hidden',
-            background: '#d8d8d8',
-          }}>
-            <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
-          </div>
-        )}
-      </div>
+      {!hideAvatar && (
+        <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
+          {!isContinuation && msg.iconUrl && (
+            <div style={{
+              width: AVATAR_SIZE, height: AVATAR_SIZE,
+              borderRadius: 4, overflow: 'hidden',
+              background: '#d8d8d8',
+            }}>
+              <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+            </div>
+          )}
+        </div>
+      )}
       {contentBlock}
     </div>
   )
@@ -103,7 +105,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup }) {
 // ─── 코코포리아 스타일 메시지 행 ─────────────────────────────────
 const CC_BORDER = '1px solid rgba(255,255,255,0.03)'
 
-export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
+export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   const AVATAR_W = 44
 
   // desc/emote: 아바타 없이 중앙 정렬 GM 지문
@@ -169,23 +171,25 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup }) {
       borderBottom: isLastInGroup ? CC_BORDER : 'none',
     }}>
       {/* 아바타 자리 */}
-      <div style={{ width: AVATAR_W, flexShrink: 0 }}>
-        {!isContinuation && (
-          <div style={{
-            width: AVATAR_W, height: AVATAR_W,
-            borderRadius: 6, overflow: 'hidden',
-            background: '#2a2a3a',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            {msg.iconUrl
-              ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
-              : msg.speaker === 'GM'
-                ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
-                : null
-            }
-          </div>
-        )}
-      </div>
+      {!hideAvatar && (
+        <div style={{ width: AVATAR_W, flexShrink: 0 }}>
+          {!isContinuation && (
+            <div style={{
+              width: AVATAR_W, height: AVATAR_W,
+              borderRadius: 6, overflow: 'hidden',
+              background: '#2a2a3a',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {msg.iconUrl
+                ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+                : msg.speaker === 'GM'
+                  ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
+                  : null
+              }
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 본문 */}
       <div style={{ flex: 1, minWidth: 0 }}>

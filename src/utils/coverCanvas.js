@@ -41,7 +41,7 @@ export function applyTemplate(state, key) {
  * 빈 표지를 보여주면 무엇이 만들어지는지 알 수 없으므로 결과 예시가 바로 보이게 함.
  */
 export const SAMPLE_TITLE = '시나리오 제목'
-export const SAMPLE_AUTHOR = '작가명'
+export const SAMPLE_AUTHOR = '페어명 또는 팀명'
 
 export function makeInitialCoverState(title = '', author = '') {
   return applyTemplate({

@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Printer, Clipboard } from 'lucide-react'
 import { glass, styles } from '../theme'
-import SegControl from '../components/SegControl'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
 import CopyChunksPopover from '../components/CopyChunksPopover'
@@ -64,7 +63,7 @@ const STAT_ROWS = {
   ],
   ccfolia: (s, t) => [
     ['전체', s.total, t.text], ['일반', s.general, '#3b82f6'],
-    ['잡담', s.sadam, t.textSub], ['비밀', s.hidden, '#ef4444'],
+    ['사담', s.sadam, t.textSub], ['비밀', s.hidden, '#ef4444'],
   ],
 }
 
@@ -74,10 +73,10 @@ export default function ConvertPage({ app }) {
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
     handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
-    includeSadam, setIncludeSadam, bodyFont, setBodyFont,
+    includeSadam, setIncludeSadam, bodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage, setCoverReturnTo,
     templateCss, isGenerating, handleDownload, handlePdf,
-    setShowAvatarManager,
+    setShowAvatarManager, hideAvatarArea, setHideAvatarArea,
   } = app
 
   const S = styles(t)
@@ -232,11 +231,17 @@ export default function ConvertPage({ app }) {
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
           {source === 'ccfolia' && (
-            <button type="button" onClick={() => setShowAvatarManager(true)} style={{
-              ...S.btnSecondary, marginBottom: 12, padding: '5px 14px', fontSize: '0.82em',
-            }}>
-              프로필 인장 관리
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
+              <button type="button" onClick={() => setShowAvatarManager(true)} style={{
+                ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+              }}>
+                프로필 인장 관리
+              </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82em', color: t.textSub, cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={hideAvatarArea} onChange={e => setHideAvatarArea(e.target.checked)} style={{ accentColor: t.accent, cursor: 'pointer' }} />
+                인장 영역 제거
+              </label>
+            </div>
           )}
           <div className="mode-grid">
             {[
@@ -281,7 +286,6 @@ export default function ConvertPage({ app }) {
           <div className="panel-bar" style={{ background: t.glass, borderBottom: `1px solid ${t.glassBorder}` }}>
             <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <SegControl value={bodyFont} onChange={setBodyFont} options={[['gothic', '고딕'], ['serif', '명조']]} t={t} />
               <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
               <div style={{ position: 'relative' }}>
                 <button type="button" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
@@ -367,7 +371,7 @@ export default function ConvertPage({ app }) {
               }}
             >
               {previewRows.map(({ msg, isContinuation, isLastInGroup }, i) => (
-                <Row key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} />
+                <Row key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} hideAvatar={hideAvatarArea} />
               ))}
             </div>
           </div>
