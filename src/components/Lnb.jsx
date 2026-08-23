@@ -73,7 +73,7 @@ function NavItem({ item, active, collapsed, onSelect, t }) {
   )
 }
 
-function FooterLink({ href, label, Icon, collapsed, t, first }) {
+function FooterLink({ href, label, Icon, collapsed, t }) {
   return (
     <a
       href={href}
@@ -85,7 +85,6 @@ function FooterLink({ href, label, Icon, collapsed, t, first }) {
         justifyContent: collapsed ? 'center' : 'flex-start',
         borderRadius: 9, textDecoration: 'none',
         color: t.textMuted, fontSize: '0.84em', fontFamily: 'inherit',
-        ...(first ? { borderTop: `1px solid ${t.borderSub}`, marginTop: 'auto', paddingTop: collapsed ? 14 : 13 } : {}),
       }}
     >
       <Icon size={16} />
@@ -97,10 +96,11 @@ function FooterLink({ href, label, Icon, collapsed, t, first }) {
 /** 사이드바 맨 아래 SNS 링크 — X, GitHub 순 */
 function Footer({ collapsed, t }) {
   return (
-    <>
-      <FooterLink href="https://x.com/be_cool_tomato" label="X (Twitter)" Icon={XIcon} collapsed={collapsed} t={t} first />
+    <div style={{ width: '100%', marginTop: 'auto' }}>
+      <div style={{ borderTop: `1px solid ${t.borderSub}`, marginBottom: 6 }} />
+      <FooterLink href="https://x.com/be_cool_tomato" label="X (Twitter)" Icon={XIcon} collapsed={collapsed} t={t} />
       <FooterLink href="https://github.com/sanc-yang/trpg-epub-maker" label="GitHub" Icon={GithubIcon} collapsed={collapsed} t={t} />
-    </>
+    </div>
   )
 }
 

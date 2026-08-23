@@ -195,11 +195,16 @@ export default function App() {
   }, [source, handleRoll20File, handleCcfoliaFile])
 
   const switchSource = useCallback((s) => {
+    if (s === source) return
+    if ((messages.length > 0 || fileName) &&
+      !window.confirm('탭을 전환하면 지금까지 변환한 내용이 초기화됩니다. 계속할까요?')) {
+      return
+    }
     localStorage.setItem('trpg_source', s)
     setSource(s)
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
     setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
-  }, [])
+  }, [source, messages.length, fileName])
 
   // ─── 다운로드 ────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {

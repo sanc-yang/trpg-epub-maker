@@ -1,4 +1,4 @@
-import { FileText, Tag, Image as ImageIcon, FlaskConical } from 'lucide-react'
+import { FileText, Tag, Image as ImageIcon, FlaskConical, Pencil } from 'lucide-react'
 import { SHOW_PLAYGROUND } from './featureFlags'
 
 /**
@@ -15,6 +15,7 @@ export const NAV_GROUPS = [
     items: [
       { key: 'bookinfo', label: '책 정보 수정', Icon: Tag },
       { key: 'cover', label: '표지 생성기', Icon: ImageIcon },
+      { key: 'logedit', label: '로그 편집 (개발 중)', Icon: Pencil, soon: true },
     ],
   },
   {
