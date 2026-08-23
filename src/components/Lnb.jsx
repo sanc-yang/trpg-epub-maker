@@ -1,17 +1,9 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Menu, X } from 'lucide-react'
 import { glass } from '../theme'
 import { NAV_GROUPS } from '../navConfig'
 
-// lucide-react 는 브랜드 로고를 제공하지 않아 GitHub·X 마크는 인라인 SVG로 사용
-function GithubIcon({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
-      <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.57.1.78-.25.78-.55 0-.27-.01-1-.02-1.96-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.28-1.68-1.28-1.68-1.04-.72.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.75 2.7 1.25 3.36.96.1-.75.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.58.24 2.75.12 3.04.73.8 1.17 1.83 1.17 3.08 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.07.78 2.15 0 1.55-.01 2.8-.01 3.18 0 .3.2.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
-    </svg>
-  )
-}
-
+// lucide-react 는 브랜드 로고를 제공하지 않아 X 마크는 인라인 SVG로 사용
 function XIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
@@ -93,13 +85,13 @@ function FooterLink({ href, label, Icon, collapsed, t }) {
   )
 }
 
-/** 사이드바 맨 아래 SNS 링크 — X, GitHub 순 */
+/** 사이드바 맨 아래 링크 — GitHub는 숨김 */
 function Footer({ collapsed, t }) {
   return (
     <div style={{ width: '100%', marginTop: 'auto' }}>
       <div style={{ borderTop: `1px solid ${t.borderSub}`, marginBottom: 6 }} />
+      <FooterLink href="https://forms.gle/rmFdDGPTJFRtmrhs9" label="문의하기" Icon={MessageCircle} collapsed={collapsed} t={t} />
       <FooterLink href="https://x.com/be_cool_tomato" label="X (Twitter)" Icon={XIcon} collapsed={collapsed} t={t} />
-      <FooterLink href="https://github.com/sanc-yang/trpg-epub-maker" label="GitHub" Icon={GithubIcon} collapsed={collapsed} t={t} />
     </div>
   )
 }
