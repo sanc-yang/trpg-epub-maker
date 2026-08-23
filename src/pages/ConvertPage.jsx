@@ -198,7 +198,7 @@ export default function ConvertPage({ app }) {
 
   return (
     <>
-      <PageHeader title="로그 변환" desc="세션 로그를 올리고 어떤 형식으로 볼지 고릅니다" t={t} />
+      <PageHeader title="로그 변환" desc="세션 로그를 올리고 어떤 형식으로 변환할지 고릅니다" t={t} />
 
       {/* 플랫폼 탭 */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${t.border}`, marginBottom: 24 }}>
