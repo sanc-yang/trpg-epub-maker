@@ -92,7 +92,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
             <div style={{
               width: AVATAR_SIZE, height: AVATAR_SIZE,
               borderRadius: 4, overflow: 'hidden',
-              background: '#d8d8d8',
+              background: 'transparent',
             }}>
               <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
             </div>
