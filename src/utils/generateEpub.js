@@ -8,12 +8,29 @@ import JSZip from 'jszip'
  */
 const COVER_EXT_MAP = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp' }
 
+/**
+ * EPUB 본문 조판 서체.
+ * EPUB 에 폰트를 동봉하지 않으므로 리더기·기기에 설치된 것 중 먼저 잡히는 것이 쓰임.
+ * 그래서 한국어 우선 → 범용 폴백 순서로 여러 개를 나열함.
+ */
+export const BODY_FONTS = {
+  gothic: '"Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Nanum Gothic", sans-serif',
+  serif: '"Noto Serif KR", "Source Han Serif KR", "Nanum Myeongjo", Batang, Georgia, serif',
+}
+export const DEFAULT_BODY_FONT = 'gothic'
+
+// epubCss 의 __BODY_FONT__ 토큰을 실제 스택으로 치환 + 롤템플릿 CSS 이어붙임
+function buildCss(bodyFont, templateCss) {
+  const stack = BODY_FONTS[bodyFont] || BODY_FONTS[DEFAULT_BODY_FONT]
+  return epubCss.replace('__BODY_FONT__', stack) + (templateCss ? '\n' + templateCss : '')
+}
+
 export async function generateEpub(messages, meta = {}) {
   const title = meta.title || 'TRPG 세션 로그'
   const author = meta.author || ''
   const includeSadam = meta.includeSadam ?? false
   const id = `trpg-${Date.now()}`
-  const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
+  const css = buildCss(meta.bodyFont, meta.templateCss)
   const chapters = messagesToChapters(messages, includeSadam)
 
   const coverTitle = meta.coverTitle || title
@@ -126,7 +143,7 @@ function canvasWrapText(ctx, text, x, y, maxWidth, lineHeight) {
 export function generatePreviewHtml(messages, meta = {}) {
   const title = meta.title || 'TRPG 세션 로그'
   const includeSadam = meta.includeSadam ?? false
-  const css = epubCss + (meta.templateCss ? '\n' + meta.templateCss : '')
+  const css = buildCss(meta.bodyFont, meta.templateCss)
   const bodyHtml = messagesToHtml(messages, includeSadam)
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -242,7 +259,7 @@ ${bodyHtml}
 
 // ─── 메시지 → HTML 변환 ──────────────────────────────────────────
 
-export function messagesToHtml(messages, includeSadam) {
+function messagesToHtml(messages, includeSadam) {
   const parts = []
   let lastGroup = { speaker: null, type: null, channelName: null }
 
@@ -308,88 +325,6 @@ export function messagesToHtml(messages, includeSadam) {
   }
 
   return parts.join('\n')
-}
-
-// ─── 블로그 복사용 HTML ───────────────────────────────────────────────
-const FONT_STACKS = {
-  serif: "'Noto Serif KR', 'Source Han Serif KR', Georgia, serif",
-  'sans-serif': "'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
-}
-
-export function messagesToBlogHtml(messages, includeSadam, fontFamily = 'serif') {
-  const fontStack = FONT_STACKS[fontFamily] || FONT_STACKS.serif
-  const W = 'trpg-blog'
-
-  const css = `
-.${W} { font-family:${fontStack} !important; font-size:1em !important; line-height:1.9 !important; color:#1a1a1a !important; background:#fff; padding:16px; }
-.${W} * { font-family:${fontStack} !important; }
-.${W} img { max-width:100% !important; }
-.${W} .spk { font-weight:bold !important; margin:2em 0 0.1em !important; padding:0 !important; }
-.${W} .dlg { margin:0.1em 0 !important; padding:0 !important; }
-.${W} .dsc { font-weight:bold !important; text-align:center !important; margin:1em 0 !important; padding:0 !important; }
-.${W} .emt { font-weight:bold !important; font-style:italic !important; text-align:center !important; margin:0.8em 0 !important; color:#444 !important; padding:0 !important; }
-.${W} .wspk { font-weight:bold !important; color:#8b0000 !important; margin:2em 0 0.1em !important; padding:0 !important; }
-.${W} .wdlg { color:#8b0000 !important; font-style:italic !important; margin:0.1em 0 !important; padding:0 !important; }
-.${W} .sspk { opacity:0.5 !important; font-size:0.9em !important; font-weight:bold !important; margin:2em 0 0.1em !important; padding:0 !important; }
-.${W} .sdlg { opacity:0.5 !important; font-size:0.9em !important; margin:0.1em 0 !important; padding:0 !important; }
-.${W} .rfml { font-size:0.85em !important; color:#555 !important; margin:0 0 0.2em !important; padding:0 !important; }
-.${W} .rtot { font-weight:bold !important; font-size:1.05em !important; margin:0.1em 0 0 !important; padding:0 !important; }
-`.trim()
-
-  const d = (cls, content) => `<div class="${cls}">${content}</div>`
-  const parts = []
-  let lastGroup = { speaker: null, type: null, channelName: null }
-  const breakGroup = () => { lastGroup = { speaker: null, type: null, channelName: null } }
-
-  for (const msg of messages) {
-    if (msg.isSadam && !includeSadam) continue
-
-    if (msg.type === 'template') {
-      const speaker = msg.speaker || ''
-      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
-      if (!isSameGroup) {
-        if (speaker) parts.push(d('spk', esc(speaker) + ' :'))
-        lastGroup = { speaker, type: 'template', channelName: msg.channelName || null }
-      }
-      parts.push(`<div style="margin:1em 0">${msg.templateHtml}</div>`)
-      continue
-    }
-
-    if (msg.type === 'desc') { breakGroup(); parts.push(d('dsc', msg.content)); continue }
-    if (msg.type === 'emote') { breakGroup(); parts.push(d('emt', msg.content)); continue }
-
-    if (msg.type === 'rollresult') {
-      const speaker = msg.speaker || ''
-      const isSameGroup = speaker && speaker === lastGroup.speaker && (msg.channelName || null) === lastGroup.channelName
-      if (!isSameGroup) {
-        if (speaker) parts.push(d('spk', esc(speaker) + ' :'))
-        lastGroup = { speaker, type: 'rollresult', channelName: msg.channelName || null }
-      }
-      if (msg.formula) parts.push(d('rfml', esc(msg.formula)))
-      if (msg.formattedHtml) parts.push(`<div style="margin:0.2em 0">${msg.formattedHtml}</div>`)
-      if (msg.rolled) parts.push(d('rtot', '= ' + esc(msg.rolled)))
-      continue
-    }
-
-    const msgType = (msg.type === 'hidden' || msg.type === 'whisper') ? 'hidden' : (msg.isSadam ? 'sadam' : 'general')
-    const speaker = msg.speaker || ''
-    const isSameGroup = speaker && speaker === lastGroup.speaker && msgType === lastGroup.type && (msg.channelName || null) === lastGroup.channelName
-
-    if (!isSameGroup) {
-      if (speaker) {
-        const nameCls = msgType === 'hidden' ? 'wspk' : msgType === 'sadam' ? 'sspk' : 'spk'
-        parts.push(d(nameCls, esc(speaker) + ' :'))
-      }
-      lastGroup = { speaker, type: msgType, channelName: msg.channelName || null }
-    }
-
-    if (msg.content) {
-      const cls = msgType === 'hidden' ? 'wdlg' : msgType === 'sadam' ? 'sdlg' : 'dlg'
-      parts.push(d(cls, msg.content))
-    }
-  }
-
-  return `<style>${css}</style><div class="${W}">${parts.join('\n')}</div>`
 }
 
 
@@ -518,9 +453,9 @@ function esc(str) {
 
 // ─── CSS ─────────────────────────────────────────────────────────
 
-export const epubCss = `
+const epubCss = `
 body {
-  font-family: "Noto Serif KR", "Source Han Serif KR", Georgia, serif;
+  font-family: __BODY_FONT__;
   font-size: 1em;
   line-height: 1.9;
   color: #1a1a1a;

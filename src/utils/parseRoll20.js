@@ -89,7 +89,7 @@ export async function parseRoll20Html(htmlString, localImageMap = {}) {
       if (foundTemplate) continue;
 
       // 본문 추출
-      let content = '';
+      let content;
       if (byEl) {
         content = siblingsToHtml(byEl.nextSibling);
       } else {

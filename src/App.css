@@ -9,3 +9,109 @@ body {
 input, textarea, button, select {
   font-family: inherit;
 }
+
+/* ─── 페이지 본문 여백 ─────────────────────────────────────── */
+.page-main {
+  flex: 1;
+  padding: 34px 40px 70px;
+}
+
+/* ─── 패널 헤더 (미리보기 바) ───────────────────────────────── */
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 15px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* ─── 변환 모드 3버튼 ──────────────────────────────────────── */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.mode-icon {
+  display: block;
+  margin: 0 auto 6px;
+}
+
+/* ─── 표지 생성기 진입 선택 2카드 ───────────────────────────── */
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  max-width: 640px;
+}
+
+/* ─── 입력 2열 ─────────────────────────────────────────────── */
+.field-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ─── 책 정보: 입력 + 표지 미리보기 ─────────────────────────── */
+.split-cover {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+/* ─── 표지 생성: 컨트롤 좌 · 표지 우 ────────────────────────── */
+.cover-layout {
+  display: flex;
+  gap: 26px;
+  align-items: flex-start;
+}
+.cover-stage {
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+}
+
+/* ─── 태블릿 ───────────────────────────────────────────────── */
+@media (max-width: 899px) {
+  .page-main { padding: 22px 20px 60px; }
+}
+
+/* ─── 모바일 ───────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .page-main { padding: 18px 14px 56px; }
+
+  /* 3열 → 1열. 아이콘을 좌측에 붙여 리스트처럼 */
+  .mode-grid { grid-template-columns: 1fr; }
+  .choice-grid { grid-template-columns: 1fr; }
+  .mode-grid > button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left !important;
+    padding: 13px 15px !important;
+  }
+  .mode-icon { margin: 0; }
+
+  /* 표지 미리보기를 아래로 내리고 가운데 정렬 */
+  .split-cover {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .split-cover > :last-child { align-self: center; }
+
+  /* 표지 생성 — 표지가 위로 (order) */
+  .cover-layout {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .cover-stage {
+    order: -1;
+    align-self: center;
+    position: static;
+  }
+
+  /* 미리보기 바가 두 줄로 접힐 때 버튼 줄을 왼쪽 정렬 */
+  .panel-bar { align-items: flex-start; }
+}

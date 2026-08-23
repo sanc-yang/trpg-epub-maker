@@ -2,8 +2,10 @@
  * 코코포리아 로그 파서
  *
  * 지원 방식:
- * 1. fetchCcfoliaLog(roomId, onProgress) — Firestore REST API로 수집
- * 2. parseCcfoliaHtml(htmlString) — HTML 직접 업로드 파싱
+ * 1. parseCcfoliaHtml(htmlString) — HTML 직접 업로드 파싱. ★현재 유일한 경로
+ * 2. fetchCcfoliaLog(roomId, onProgress) — Firestore REST API로 수집.
+ *    ⛔ 코코포리아 정책상 외부에서 Firestore 직접 조회가 불가하여 UI 에서 숨김 처리됨
+ *    (App.jsx 의 SHOW_CCFOLIA_URL_MODE = false). 정책 변경 대비로 코드는 보존.
  *
  * 반환 메시지 형식은 parseRoll20.js 스펙과 동일:
  * { id, type, isSadam, isYou, speaker, content, timestamp }

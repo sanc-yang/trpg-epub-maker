@@ -1,16 +1,178 @@
-# React + Vite
+# TRPG 세션 제본소
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Roll20 · 코코포리아 세션 로그를 **전자책(EPUB)** 또는 **PDF**로 제본해주는 웹앱.
 
-Currently, two official plugins are available:
+▶ **[바로 사용하기](https://sanc-yang.github.io/trpg-epub-maker/)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+기존 로그 변환 툴이 웹 게시용 HTML/CSS 꾸미기에 집중하는 것과 달리, 이 앱은 **소장용 전자책 포맷**을 목표로 함. 세션 로그를 소설처럼 e북 리더에 넣어두고 싶은 용도.
 
-## React Compiler
+> **로그는 서버로 전송되지 않음.** 파싱 · EPUB 생성 · 이미지 처리 전부 브라우저 안에서만 실행. 서버 없음, 데이터 수집 없음.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 주요 기능
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 입력 — 2개 플랫폼
+| 플랫폼 | 방식 | 비고 |
+|---|---|---|
+| **Roll20** | 채팅 아카이브 ZIP 업로드 | ZIP 안의 이미지까지 자동 임베드 |
+| **코코포리아** | HTML 내보내기 파일 업로드 | 캐릭터 컬러 · 채널(메인/잡담) · 주사위 결과 보존 |
+
+### 출력 — 3개 스타일
+| 스타일 | 결과물 | 특징 |
+|---|---|---|
+| **eBook** | `.epub` 다운로드 | 고딕체 소설 조판, 목차 자동 생성, 표지 포함 |
+| **Roll20 스타일** | PDF (브라우저 인쇄) | 아바타 + 말풍선 배경색까지 원본 재현 |
+| **코코포리아 스타일** | PDF (브라우저 인쇄) | 다크 테마, 캐릭터 컬러 유지 |
+
+### 화면 구성 — 좌측 메뉴(LNB)
+| 메뉴 | 하는 일 |
+|---|---|
+| **로그 변환** | 업로드 · 통계 · 3스타일 미리보기 · 다운로드 |
+| **eBook 수정 › 책 정보 수정** | 제목 · 작가명 · 표지 지정 |
+| **eBook 수정 › 표지 생성기** | 이미지 위에 텍스트를 얹어 표지 제작 (로그 없이도 사용 가능) |
+
+LNB 는 접을 수 있음 — 접힘 시 아이콘만 남고 마우스를 올리면 메뉴명이 뜸. 900px 미만에서는 상단 햄버거 → 드로어로 바뀜.
+
+### 표지 생성기
+- **템플릿 3종** — 사진+하단 / 미니멀 / 프레임. 아래 값들을 한 번에 지정하는 프리셋
+- **이미지 조정** — 드래그로 이동, 휠·슬라이더로 확대(100~300%). 프레임에 빈 공간이 생기지 않도록 이동 범위 제한
+- **가독성 오버레이** — 텍스트가 놓인 쪽만 어둡게(0~80%). 상단 배치면 위쪽, 하단이면 아래쪽, 중앙이면 전체
+- **텍스트** — 제목 · 작가명 / 서체(고딕·명조) / 정렬 / 세로 위치 / 크기 / 색
+- 미리보기와 결과물이 **같은 canvas 하나**라 보이는 그대로 나옴
+
+### 그 외
+- **본문 서체 선택** — EPUB 본문을 고딕 / 명조 중 선택 (선택값 브라우저에 저장)
+- **사담(OOC) 포함/제외 토글** — 미리보기와 결과물에 즉시 반영
+- **메시지 종류별 통계** — 대사 · 사담 · 숨김굴림 · 귓속말 · GM 지문 · GM 특수
+- **챕터 자동 분할** — GM 지문(desc)을 챕터 경계로 사용. 5,000개 초과 시 다음 지문 직전에서 분할
+- **로그 종류별 조판 구분** — 대사 / GM 지문 / 판정 타이틀 / 귓속말 / 사담 / 주사위 굴림 결과 / 롤 템플릿
+
+### 파싱 지원 범위
+- Roll20 **롤 템플릿** 전체(`sheet-rolltemplate-*`) — 원본 CSS를 추출해 EPUB에 동봉, 테이블 `colspan` 자동 보정
+- **CoC 판정 결과 배지** — 판정값 대 기능치를 계산해 `대성공 / 극단적 성공 / 어려운 성공 / 성공 / 실패 / 대실패` 자동 부여
+- **주사위 굴림** — 수식 · 개별 주사위 눈 · 합계를 모두 보존
+- **연속 발언 그룹핑** — 같은 화자의 연속 메시지는 이름 반복 없이 묶음
+- **이미지** — 원격 이미지는 base64로 임베드 후 EPUB 내 별도 파일로 분리 (본문 용량 최적화)
+
+---
+
+## 사용법
+
+### Roll20 로그 저장하기
+
+1. Roll20 캠페인 페이지 접속 (로그인 필요)
+2. 우측 상단 채팅 아이콘 → **Chat Archive** 클릭
+3. **`Show on One Page`** 버튼 클릭
+4. `Ctrl+S` (Mac: `Cmd+S`) → 저장 형식 **"웹페이지, 전체"** 선택
+5. 저장된 `.html` 파일과 같이 생성된 폴더를 **함께 ZIP으로 압축**
+6. ZIP 파일을 앱에 드래그앤드롭
+
+> 5번이 필요한 이유 — 아바타·삽화 이미지가 별도 폴더에 저장되기 때문. HTML만 올리면 이미지가 빠짐.
+
+### 코코포리아 로그 가져오기
+
+코코포리아에서 로그를 **HTML로 내보낸** 뒤 그 파일을 앱에 드래그앤드롭.
+
+> 방 URL만 넣어서 자동으로 가져오는 방식은 **지원하지 않음.** 코코포리아 정책상 외부에서 로그 데이터를 직접 조회할 수 없어, HTML 내보내기가 유일한 경로.
+
+### 제본
+
+로그를 올리면 **eBook / Roll20 / 코코포리아** 세 스타일 중 선택 → 미리보기 확인 → 다운로드.
+PDF는 브라우저 인쇄 대화상자에서 **"PDF로 저장"** 선택.
+
+---
+
+## 기술 스택
+
+| 역할 | 사용 기술 |
+|---|---|
+| UI | React 19 + Vite 8 |
+| 아이콘 | lucide-react |
+| HTML 파싱 | 브라우저 내장 `DOMParser` |
+| EPUB 생성 | JSZip (EPUB 2.0 컨테이너 직접 구성) |
+| PDF 생성 | 브라우저 인쇄 (`window.print`) |
+| 폰트 | Pretendard (전체) |
+| 배포 | GitHub Pages (`gh-pages`) |
+
+서버·백엔드 없음. 전체가 정적 호스팅으로 동작.
+
+---
+
+## 로컬 실행
+
+```bash
+git clone https://github.com/sanc-yang/trpg-epub-maker.git
+cd trpg-epub-maker
+npm install
+npm run dev        # → http://localhost:5173/trpg-epub-maker/
+```
+
+| 명령 | 설명 |
+|---|---|
+| `npm run dev` | 개발 서버 (HMR) |
+| `npm run build` | `dist/`로 프로덕션 빌드 |
+| `npm run preview` | 빌드 결과물 로컬 확인 |
+| `npm run lint` | ESLint 검사 |
+| `npm run deploy` | 빌드 후 `gh-pages` 브랜치로 배포 |
+
+> `vite.config.js`의 `base`가 `/trpg-epub-maker/`로 지정돼 있어 dev 서버 주소에도 경로가 붙음.
+
+---
+
+## 프로젝트 구조
+
+```
+src/
+├─ App.jsx                  셸 — LNB + 페이지 전환 + 공유 state 전부
+├─ theme.js                 팔레트 · 공통 스타일 조각
+├─ hooks.js                 useMediaQuery
+├─ featureFlags.js          숨긴 기능 스위치
+├─ navConfig.js             LNB 메뉴 구성
+├─ index.css / App.css      전역 스타일 · 반응형 미디어쿼리
+├─ components/              Lnb · DropZone · SegControl · Toast · MessageRows 등
+├─ pages/
+│  ├─ ConvertPage.jsx       로그 변환
+│  ├─ BookInfoPage.jsx      책 정보 수정
+│  └─ CoverPage.jsx         표지 생성기
+└─ utils/
+   ├─ parseRoll20.js        Roll20 아카이브 HTML → 메시지 배열
+   ├─ parseCcfolia.js       코코포리아 HTML → 메시지 배열 (Firestore 수집 코드는 비활성)
+   ├─ annotateMessages.js   연속발언 그룹핑 플래그
+   ├─ coverCanvas.js        표지 canvas 렌더링 · 템플릿
+   └─ generateEpub.js       메시지 배열 → EPUB Blob, 미리보기 HTML
+
+docs/                       개발 계획 · 이슈 트래킹 (Obsidian 볼트 연동)
+public/                     favicon, 링크 공유용 OG 이미지
+```
+
+**기능 추가 방법** — `pages/` 에 페이지를 만들고 `navConfig.js` 에 메뉴 항목,
+`App.jsx` 의 `PAGES` 에 키를 등록하면 끝. LNB·반응형은 자동으로 따라옴.
+
+두 파서 모두 **동일한 메시지 객체 규격**으로 반환하므로, 플랫폼이 추가돼도 `generateEpub.js`는 수정 불필요.
+
+```js
+{
+  id, type,        // 'general' | 'hidden' | 'whisper' | 'emote' | 'desc' | 'template' | 'rollresult'
+  isSadam, isYou,  // OOC 사담 여부 / 본인 발언 여부
+  speaker, content, timestamp,
+  charColor, iconUrl, channelName,
+}
+```
+
+---
+
+## 알려진 제약
+
+- **PDF는 브라우저 인쇄 기반** — 페이지 나눔 위치를 세밀히 제어할 수 없음
+- **EPUB 에 폰트를 동봉하지 않음** — 본문 서체는 리더기·기기에 설치된 폰트 중 먼저 잡히는 것이 적용됨
+
+남은 작업 목록은 [`TODO.md`](TODO.md) 참고.
+
+---
+
+## 라이선스
+
+미지정 (추후 결정 예정).
+
+made by **pong**
