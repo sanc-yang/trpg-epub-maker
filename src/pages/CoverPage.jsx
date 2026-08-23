@@ -170,13 +170,13 @@ export default function CoverPage({ app }) {
         <div className="choice-grid">
           {choices.map(({ key, Icon, label, desc }) => (
             <button key={key} type="button" onClick={() => setMode(key)} style={{
-              ...glass(t), borderRadius: 16, padding: '22px 20px', cursor: 'pointer',
+              ...glass(t), borderRadius: 18, padding: '32px 28px', cursor: 'pointer',
               textAlign: 'left', fontFamily: 'inherit', color: t.text,
               border: `1px solid ${t.glassBorder}`, transition: 'all 0.15s',
             }}>
-              <Icon size={22} strokeWidth={1.6} style={{ display: 'block', marginBottom: 12, color: t.textSub }} />
-              <div style={{ fontSize: '0.92em', fontWeight: 700, marginBottom: 5 }}>{label}</div>
-              <div style={{ fontSize: '0.76em', color: t.textSub, lineHeight: 1.6 }}>{desc}</div>
+              <Icon size={30} strokeWidth={1.6} style={{ display: 'block', marginBottom: 16, color: t.textSub }} />
+              <div style={{ fontSize: '1.08em', fontWeight: 700, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: '0.88em', color: t.textSub, lineHeight: 1.65 }}>{desc}</div>
             </button>
           ))}
         </div>

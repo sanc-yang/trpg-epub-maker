@@ -43,8 +43,7 @@ input, textarea, button, select {
 .choice-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  max-width: 640px;
+  gap: 14px;
 }
 
 /* ─── 입력 2열 ─────────────────────────────────────────────── */
