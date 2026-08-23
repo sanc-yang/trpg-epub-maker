@@ -309,8 +309,17 @@ export default function ConvertPage({ app }) {
         </DropZone>
       )}
 
+      {/* 파싱 중 — 가이드 이미지보다 위에 둬서 큰 로그 파싱하는 동안 안 가려지고 바로 보이게 함 */}
+      {isParsing && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0 24px', color: t.textSub, fontSize: '0.9em' }}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <div style={{ width: 16, height: 16, border: `2px solid ${t.borderSub}`, borderTopColor: t.textSub, borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+          로그 변환 준비 중 ...
+        </div>
+      )}
+
       {/* 로그 추출 가이드 — 아직 아무것도 안 올라간 상태에서만 노출, 드롭존과 같은 폭 */}
-      {!fileName && !stats && (
+      {!fileName && !stats && !isParsing && (
         <div style={{ marginBottom: 24 }}>
           <ZoomableImage
             t={t}
@@ -338,15 +347,6 @@ export default function ConvertPage({ app }) {
               <span style={{ color: t.textSub }}>{label}</span>
             </span>
           ))}
-        </div>
-      )}
-
-      {/* 파싱 중 */}
-      {isParsing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0 24px', color: t.textSub, fontSize: '0.9em' }}>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <div style={{ width: 16, height: 16, border: `2px solid ${t.borderSub}`, borderTopColor: t.textSub, borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-          로그 변환 준비 중 ...
         </div>
       )}
 
