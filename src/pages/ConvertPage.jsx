@@ -75,7 +75,7 @@ export default function ConvertPage({ app }) {
     handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
-    title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage,
+    title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage, setCoverReturnTo,
     templateCss, isGenerating, handleDownload, handlePdf,
     setShowAvatarManager,
   } = app
@@ -274,7 +274,7 @@ export default function ConvertPage({ app }) {
             <BookInfoFields
               t={t} title={title} setTitle={setTitle} author={author} setAuthor={setAuthor}
               coverImage={coverImage} setCoverImage={setCoverImage}
-              onGoCoverGenerator={() => setPage('cover')}
+              onGoCoverGenerator={() => { setCoverReturnTo('convert'); setPage('cover') }}
             />
           </div>
           <div style={{ ...G, borderRadius: 16, overflow: 'hidden', marginBottom: 30 }}>

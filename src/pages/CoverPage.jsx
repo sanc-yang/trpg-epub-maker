@@ -35,15 +35,17 @@ function TemplateThumb({ tpl }) {
 }
 
 export default function CoverPage({ app }) {
-  const { t, messages, title, author, setCoverImage, setPage, toast } = app
+  const { t, messages, title, author, setCoverImage, setPage, coverReturnTo, toast } = app
   const S = styles(t)
 
   const hasEbook = messages.length > 0
 
   // 진입 시 목적을 먼저 고름. null = 선택 화면.
-  // 'apply'  = 기존 eBook 표지 수정 → 「이 표지로 사용」 활성
+  // 'apply'  = 기존 eBook 표지 수정 → 「이 표지로 적용하기」 활성
   // 'export' = 표지만 생성        → PNG 내려받기 전용
-  const [mode, setMode] = useState(null)
+  // eBook이 이미 있는 상태로 들어오면 고를 것도 없이 바로 apply 화면으로 감.
+  // (직접 고르고 싶으면 「다시 고르기」로 선택 화면으로 돌아갈 수 있음)
+  const [mode, setMode] = useState(() => hasEbook ? 'apply' : null)
 
   const canvasRef = useRef(null)
   const frameRef = useRef(null)
@@ -132,6 +134,7 @@ export default function CoverPage({ app }) {
     if (!canApply) return
     setCoverImage(canvasRef.current.toDataURL('image/png'))
     toast('표지를 적용했습니다')
+    setPage(coverReturnTo)
   }
   const download = () => {
     const a = document.createElement('a')
@@ -343,7 +346,7 @@ export default function CoverPage({ app }) {
                 <button type="button" onClick={useAsCover} style={{
                   ...S.btnPrimary, fontSize: '0.84em', padding: '9px 18px',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
-                }}><Check size={14} />이 표지로 사용</button>
+                }}><Check size={14} />이 표지로 적용하기</button>
               )}
               <button type="button" onClick={download} style={{
                 ...(canApply ? S.btnSecondary : S.btnPrimary),

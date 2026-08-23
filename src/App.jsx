@@ -77,6 +77,14 @@ export default function App() {
   const [author, setAuthor] = useState('')
   const [coverImage, setCoverImage] = useState(null)
 
+  // 표지 생성기에서 「이 표지로 적용하기」 후 돌아갈 페이지. 기본값 = 책 정보 수정.
+  // 로그 변환 화면의 표지 생성기 링크만 'convert'로 바꿔 돌아갈 곳을 지정함.
+  const [coverReturnTo, setCoverReturnTo] = useState('bookinfo')
+  const navigate = useCallback((p) => {
+    if (p === 'cover') setCoverReturnTo('bookinfo') // LNB로 직접 들어오면 기본 반환처로
+    setPage(p)
+  }, [])
+
   // 플랫폼 입력
   const [source, setSource] = useState(() => localStorage.getItem('trpg_source') || 'roll20')
   const [ccfoliaMode, setCcfoliaMode] = useState('html')
@@ -251,6 +259,7 @@ export default function App() {
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,
+    coverReturnTo, setCoverReturnTo,
     isGenerating, handleDownload, handlePdf,
     showAvatarManager, setShowAvatarManager,
   }
@@ -261,7 +270,7 @@ export default function App() {
     <div style={{ display: 'flex', minHeight: '100svh', color: t.text }}>
       {!isMobile && (
         <Lnb
-          page={page} onSelect={setPage}
+          page={page} onSelect={navigate}
           collapsed={collapsed} onToggleCollapse={toggleCollapse}
           isMobile={false} t={t}
         />
@@ -272,7 +281,7 @@ export default function App() {
           <>
             <MobileTopBar onOpenDrawer={() => setDrawerOpen(true)} t={t} />
             <Lnb
-              page={page} onSelect={setPage}
+              page={page} onSelect={navigate}
               collapsed={false} isMobile
               drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} t={t}
             />
