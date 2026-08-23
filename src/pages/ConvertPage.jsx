@@ -16,6 +16,11 @@ import PageHeader from '../components/PageHeader'
 const HTML_CHUNK_SIZE = 2000 // Roll20/코코포리아 HTML 복사 — 섹션당 메시지 수
 const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
 
+// 복사/다운로드 HTML의 배경색. 흰색 그대로 두면 빈 페이지처럼 보여서
+// Roll20 쪽도 코코포리아처럼 은은한 색을 깔아줌 (메시지 행 색상과는 구분되게)
+const PREVIEW_BG = { roll20: '#ecebe6', ccfolia: '#0e0e16' }
+const PREVIEW_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' }
+
 function getFilteredRows(elId, includeSadam) {
   const el = document.getElementById(elId)
   if (!el) return []
@@ -141,8 +146,8 @@ export default function ConvertPage({ app }) {
     await copyPreviewChunk({
       elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
       chunkIndex: i, includeSadam, templateCss,
-      bgColor: mode === 'ccfolia' ? '#0e0e16' : '#ffffff',
-      imgBg: mode === 'roll20' ? '#e8f4ff' : '#f5f5f5',
+      bgColor: PREVIEW_BG[mode],
+      imgBg: PREVIEW_IMG_BG[mode],
     })
     toast(`섹션 ${i + 1} 복사 완료!`)
   }
@@ -156,8 +161,8 @@ export default function ConvertPage({ app }) {
       await downloadPreviewHtml({
         elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
         includeSadam, templateCss,
-        bgColor: mode === 'ccfolia' ? '#0e0e16' : '#ffffff',
-        imgBg: mode === 'roll20' ? '#e8f4ff' : '#f5f5f5',
+        bgColor: PREVIEW_BG[mode],
+        imgBg: PREVIEW_IMG_BG[mode],
         title: `${title || fileName.replace(/\.(html|zip)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
       })
       toast('HTML 다운로드 완료!')
