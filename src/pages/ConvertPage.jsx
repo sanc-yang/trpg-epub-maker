@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Clipboard } from 'lucide-react'
 import { glass, styles } from '../theme'
 import ToggleSwitch from '../components/ToggleSwitch'
@@ -32,10 +33,20 @@ const IMG_BG_RESOLVERS = {
 }
 const DEFAULT_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' } // <style> img 기본값(투명 배경이 없다면 눈에 안 보임)
 
-function getFilteredRows(elId, includeSadam) {
-  const el = document.getElementById(elId)
-  if (!el) return []
-  return Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
+// previewRows(annotate 결과)를 실제 DOM에 붙이지 않고 문자열로 렌더링해 떼어진 엘리먼트로 반환.
+// 가상 스크롤을 쓰면 화면 밖 행은 DOM에 없기 때문에, 복사/다운로드는 라이브 DOM을 긁는 대신
+// 항상 메시지 데이터에서 직접 새로 그려서 화면에 보이는지와 무관하게 전체를 정확히 포함함.
+function renderRowsToElements(rows, Row, hideAvatar) {
+  const html = renderToStaticMarkup(
+    <>
+      {rows.map(({ msg, isContinuation, isLastInGroup }, i) => (
+        <Row key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} hideAvatar={hideAvatar} />
+      ))}
+    </>
+  )
+  const container = document.createElement('div')
+  container.innerHTML = html
+  return Array.from(container.children)
 }
 
 // 아바타는 화면에 36~44px로만 보이므로 첨부 이미지보다 훨씬 작게 압축
@@ -84,18 +95,18 @@ async function compressRowsToHtml(rows, resolveImgBg) {
   return finalInner
 }
 
-// Roll20/코코포리아 미리보기 DOM → 클립보드용 HTML 조각 (이미지 압축 포함, 섹션 단위)
-async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, mode }) {
-  const rows = getFilteredRows(elId, includeSadam)
-  const slice = rows.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
-  const finalInner = await compressRowsToHtml(slice, IMG_BG_RESOLVERS[mode])
+// Roll20/코코포리아 미리보기 → 클립보드용 HTML 조각 (이미지 압축 포함, 섹션 단위)
+async function copyPreviewChunk({ previewRows, Row, chunkIndex, hideAvatar, templateCss, bgColor, mode }) {
+  const slice = previewRows.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
+  const rows = renderRowsToElements(slice, Row, hideAvatar)
+  const finalInner = await compressRowsToHtml(rows, IMG_BG_RESOLVERS[mode])
   const html = `<style>img{background-color:${DEFAULT_IMG_BG[mode]}!important;max-width:100%!important}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
   await copyHtmlToClipboard(html)
 }
 
 // Roll20/코코포리아 로그 전체 → 청크 없이 통짜 HTML 문서 파일로 다운로드 (PDF처럼 한 문서로 보는 용도)
-async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, mode, title }) {
-  const rows = getFilteredRows(elId, includeSadam)
+async function downloadPreviewHtml({ previewRows, Row, hideAvatar, templateCss, bgColor, mode, title }) {
+  const rows = renderRowsToElements(previewRows, Row, hideAvatar)
   const finalInner = await compressRowsToHtml(rows, IMG_BG_RESOLVERS[mode])
   const html = `<!DOCTYPE html>
 <html lang="ko">
@@ -152,6 +163,26 @@ export default function ConvertPage({ app }) {
   // 모드 선택 카드 hover — 'epub' | 'roll20' | 'ccfolia' | null
   const [hoverMode, setHoverMode] = useState(null)
 
+  // Roll20/코코포리아 미리보기 점진 렌더링 — 메시지가 수만 개인 로그를 한 번에
+  // 전부 DOM에 그리면 브라우저가 멈추기 때문에, 처음엔 일부만 그리고
+  // 스크롤이 바닥에 가까워지면 더 불러옴 (무한 스크롤 방식).
+  // 렌더링 도중 상태를 조정하는 공식 패턴으로 리셋 — effect 안에서 setState하면
+  // 캐스케이드 렌더링이 생겨서 대신 이 방식을 씀.
+  const PREVIEW_BATCH = 300
+  const previewResetKey = `${selectedMode}|${includeSadam}|${hideAvatarArea}|${fileName}`
+  const [visibleCount, setVisibleCount] = useState(PREVIEW_BATCH)
+  const [lastPreviewResetKey, setLastPreviewResetKey] = useState(previewResetKey)
+  if (previewResetKey !== lastPreviewResetKey) {
+    setLastPreviewResetKey(previewResetKey)
+    setVisibleCount(PREVIEW_BATCH)
+  }
+  const handlePreviewScroll = (e) => {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+      setVisibleCount(v => v + PREVIEW_BATCH)
+    }
+  }
+
   const handleCopyEbookChunk = async (i) => {
     const filtered = messagesWithAvatars.filter(m => includeSadam || !m.isSadam)
     const slice = filtered.slice(i * EBOOK_CHUNK_SIZE, (i + 1) * EBOOK_CHUNK_SIZE)
@@ -162,8 +193,8 @@ export default function ConvertPage({ app }) {
 
   const handleCopyPreviewChunk = async (mode, i) => {
     await copyPreviewChunk({
-      elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
-      chunkIndex: i, includeSadam, templateCss,
+      previewRows, Row: mode === 'roll20' ? MessageRow : CcfoliaMessageRow,
+      chunkIndex: i, hideAvatar: hideAvatarArea, templateCss,
       bgColor: PREVIEW_BG[mode], mode,
     })
     toast(`섹션 ${i + 1} 복사 완료!`)
@@ -176,8 +207,8 @@ export default function ConvertPage({ app }) {
     setDownloadingHtml(mode)
     try {
       await downloadPreviewHtml({
-        elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
-        includeSadam, templateCss,
+        previewRows, Row: mode === 'roll20' ? MessageRow : CcfoliaMessageRow,
+        hideAvatar: hideAvatarArea, templateCss,
         bgColor: PREVIEW_BG[mode], mode,
         title: `${title || fileName.replace(/\.(html|zip)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
       })
@@ -475,14 +506,20 @@ export default function ConvertPage({ app }) {
             </div>
             <div
               id={isR20 ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs'}
+              onScroll={handlePreviewScroll}
               style={{
                 maxHeight: 600, overflowY: 'auto', overflowX: 'hidden',
                 background: isR20 ? '#fff' : '#0e0e16', color: isR20 ? '#1c1c1e' : undefined,
               }}
             >
-              {previewRows.map(({ msg, isContinuation, isLastInGroup }, i) => (
+              {previewRows.slice(0, visibleCount).map(({ msg, isContinuation, isLastInGroup }, i) => (
                 <Row key={msg.id || i} msg={msg} isContinuation={isContinuation} isLastInGroup={isLastInGroup} hideAvatar={hideAvatarArea} />
               ))}
+              {visibleCount < previewRows.length && (
+                <div style={{ padding: '10px 14px', fontSize: '0.76em', color: isR20 ? '#888' : '#666', textAlign: 'center' }}>
+                  {visibleCount.toLocaleString()} / {previewRows.length.toLocaleString()}개 표시 중 · 스크롤하면 더 불러옵니다
+                </div>
+              )}
             </div>
           </div>
         )
