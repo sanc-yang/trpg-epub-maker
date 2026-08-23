@@ -24,7 +24,7 @@ const PREVIEW_BG = { roll20: '#f0f0f0', ccfolia: '#0e0e16' }
 // 파란(대사) 배경과 안 어울려서, 대사(data-dialogue) 행 안의 이미지만 파란색을
 // 쓰고 나머지는 무난한 회색으로 채움
 const IMG_BG_RESOLVERS = {
-  roll20: (row) => (row.hasAttribute('data-dialogue') ? '#e8f4ff' : '#e5e5e5'),
+  roll20: (row) => (row.hasAttribute('data-dialogue') ? '#e8f4ff' : '#f5f5f5'),
   ccfolia: () => '#f5f5f5',
 }
 const DEFAULT_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' } // <style> img 기본값(투명 배경이 없다면 눈에 안 보임)
