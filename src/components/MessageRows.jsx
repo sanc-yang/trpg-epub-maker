@@ -22,7 +22,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     const isDesc = msg.type === 'desc'
     return (
       <div style={{
-        background: isDesc ? 'rgba(0,0,0,0.04)' : (TYPE_COLOR[msg.type] || '#fff'),
+        background: isDesc ? '#f5f5f5' : (TYPE_COLOR[msg.type] || '#fff'),
         padding: `6px 10px 6px ${avatarGutter}px`,
         textAlign: 'center',
         color: isDesc ? '#000' : '#8b4b1a',
@@ -67,8 +67,8 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     return (
       <div data-sadam="true" style={{
         padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${avatarGutter}px`,
-        background: 'rgba(0,0,0,0.04)',
-        opacity: 0.75,
+        background: '#f5f5f5',
+        color: '#666',
         fontSize: '0.9em',
         borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
