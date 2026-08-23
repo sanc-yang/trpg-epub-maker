@@ -12,6 +12,8 @@ import { generatePreviewHtml, messagesToBlogHtml } from '../utils/generateEpub'
 import { compressBase64Img, copyHtmlToClipboard, downloadHtmlFile } from '../utils/htmlCopy'
 import { SHOW_CCFOLIA_URL_MODE } from '../featureFlags'
 import PageHeader from '../components/PageHeader'
+import guideRoll20 from '../assets/guide-roll20.png'
+import guideCcfolia from '../assets/guide-ccfolia.png'
 
 const HTML_CHUNK_SIZE = 2000 // Roll20/코코포리아 HTML 복사 — 섹션당 메시지 수
 const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
@@ -270,6 +272,21 @@ export default function ConvertPage({ app }) {
             ? <span style={{ color: t.text, fontWeight: 600, fontSize: '1.02em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Book size={15} /> {fileName}</span>
             : (source === 'roll20' ? 'Roll20 ZIP 파일 드롭 또는 클릭' : '코코포리아 HTML 파일 드롭 또는 클릭')}
         </DropZone>
+      )}
+
+      {/* 로그 추출 가이드 — 아직 아무것도 안 올라간 상태에서만 노출 */}
+      {!fileName && !stats && (
+        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          <img
+            src={source === 'roll20' ? guideRoll20 : guideCcfolia}
+            alt={source === 'roll20' ? 'Roll20 로그 추출 가이드' : '코코포리아 로그 추출 가이드'}
+            style={{
+              display: 'inline-block', maxWidth: '100%', width: 460,
+              borderRadius: 12, border: `1px solid ${t.glassBorder}`,
+              boxShadow: t.shadow,
+            }}
+          />
+        </div>
       )}
 
       {source === 'ccfolia' && SHOW_CCFOLIA_URL_MODE && ccfoliaMode === 'url' && fileName && (
