@@ -22,13 +22,22 @@ function getFilteredRows(elId, includeSadam) {
   return Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
 }
 
+// 아바타는 화면에 36~44px로만 보이므로 첨부 이미지보다 훨씬 작게 압축
+const AVATAR_MAX = 96
+const CONTENT_MAX = 400
+
 // rows 안의 data: 이미지를 canvas로 압축해 outerHTML 문자열로 합침 (같은 이미지 중복 압축 방지)
 async function compressRowsToHtml(rows, imgBg) {
   const srcToToken = new Map()
+  const tokenIsAvatar = new Map()
   rows.forEach(row => {
     row.querySelectorAll('img[src^="data:"]').forEach(img => {
       const src = img.getAttribute('src')
-      if (!srcToToken.has(src)) srcToToken.set(src, `__T${srcToToken.size}__`)
+      if (!srcToToken.has(src)) {
+        const token = `__T${srcToToken.size}__`
+        srcToToken.set(src, token)
+        tokenIsAvatar.set(token, img.hasAttribute('data-avatar'))
+      }
     })
   })
 
@@ -46,7 +55,8 @@ async function compressRowsToHtml(rows, imgBg) {
 
   const tokenToCompressed = new Map()
   await Promise.all([...srcToToken.entries()].map(async ([src, token]) => {
-    tokenToCompressed.set(token, await compressBase64Img(src, 0.72, imgBg, 400, 400))
+    const max = tokenIsAvatar.get(token) ? AVATAR_MAX : CONTENT_MAX
+    tokenToCompressed.set(token, await compressBase64Img(src, 0.72, imgBg, max, max))
   }))
   let finalInner = inner
   tokenToCompressed.forEach((compressed, token) => { finalInner = finalInner.replaceAll(token, compressed) })

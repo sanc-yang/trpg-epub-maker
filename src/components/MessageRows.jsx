@@ -94,7 +94,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
               borderRadius: 4, overflow: 'hidden',
               background: '#d8d8d8',
             }}>
-              <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+              <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
             </div>
           )}
         </div>
@@ -183,7 +183,7 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvat
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {msg.iconUrl
-                ? <img src={msg.iconUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+                ? <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
                 : msg.speaker === 'GM'
                   ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
                   : null
