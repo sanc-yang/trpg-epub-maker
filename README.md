@@ -157,7 +157,6 @@ src/
    ├─ generateEpub.js       메시지 배열 → EPUB Blob, 미리보기 HTML, 블로그용 HTML
    └─ htmlCopy.js           이미지 압축, 클립보드 복사/파일 다운로드 공용 유틸
 
-docs/                       개발 계획 · 이슈 트래킹 (Obsidian 볼트 연동)
 public/                     favicon, 링크 공유용 OG 이미지
 ```
 
@@ -182,8 +181,6 @@ public/                     favicon, 링크 공유용 OG 이미지
 - **EPUB 에 폰트를 동봉하지 않음** — 본문 서체는 리더기·기기에 설치된 폰트 중 먼저 잡히는 것이 적용됨
 - **HTML 다운로드는 JPEG 압축이라 이미지 투명 배경이 유지되지 않음** — 압축 시 대사/기타 영역에 맞는
   배경색을 채워 넣음
-
-남은 작업 목록은 [`TODO.md`](TODO.md) 참고.
 
 ---
 

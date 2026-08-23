@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 내부 작업 메모 (옵시디언 볼트 연동) — 공개 저장소에는 올리지 않음
+docs/
+TODO.md
+CLAUDE.md
