@@ -19,7 +19,15 @@ const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
 // 복사/다운로드 HTML의 배경색. 흰색 그대로 두면 빈 페이지처럼 보여서
 // Roll20 쪽도 코코포리아처럼 은은한 색을 깔아줌 (메시지 행 색상과는 구분되게)
 const PREVIEW_BG = { roll20: '#f0f0f0', ccfolia: '#0e0e16' }
-const PREVIEW_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' }
+
+// 이미지 압축 시 투명 영역을 채울 배경색. 롤템플릿 등은 자체 스타일이라
+// 파란(대사) 배경과 안 어울려서, 대사(data-dialogue) 행 안의 이미지만 파란색을
+// 쓰고 나머지는 무난한 회색으로 채움
+const IMG_BG_RESOLVERS = {
+  roll20: (row) => (row.hasAttribute('data-dialogue') ? '#e8f4ff' : '#e5e5e5'),
+  ccfolia: () => '#f5f5f5',
+}
+const DEFAULT_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' } // <style> img 기본값(투명 배경이 없다면 눈에 안 보임)
 
 function getFilteredRows(elId, includeSadam) {
   const el = document.getElementById(elId)
@@ -32,26 +40,31 @@ const AVATAR_MAX = 96
 const CONTENT_MAX = 400
 
 // rows 안의 data: 이미지를 canvas로 압축해 outerHTML 문자열로 합침 (같은 이미지 중복 압축 방지)
-async function compressRowsToHtml(rows, imgBg) {
-  const srcToToken = new Map()
-  const tokenIsAvatar = new Map()
+// resolveImgBg(row): 그 행 안의 이미지에 채울 배경색을 정하는 함수
+async function compressRowsToHtml(rows, resolveImgBg) {
+  const keyToToken = new Map() // `${src}|${bg}` → token
+  const tokenInfo = new Map() // token → { src, bg, isAvatar }
+
   rows.forEach(row => {
+    const bg = resolveImgBg(row)
     row.querySelectorAll('img[src^="data:"]').forEach(img => {
       const src = img.getAttribute('src')
-      if (!srcToToken.has(src)) {
-        const token = `__T${srcToToken.size}__`
-        srcToToken.set(src, token)
-        tokenIsAvatar.set(token, img.hasAttribute('data-avatar'))
+      const key = `${src}|${bg}`
+      if (!keyToToken.has(key)) {
+        const token = `__T${keyToToken.size}__`
+        keyToToken.set(key, token)
+        tokenInfo.set(token, { src, bg, isAvatar: img.hasAttribute('data-avatar') })
       }
     })
   })
 
   const toRestore = []
   rows.forEach(row => {
+    const bg = resolveImgBg(row)
     row.querySelectorAll('img[src^="data:"]').forEach(img => {
       const src = img.getAttribute('src')
       toRestore.push([img, src])
-      img.setAttribute('src', srcToToken.get(src))
+      img.setAttribute('src', keyToToken.get(`${src}|${bg}`))
     })
   })
 
@@ -59,9 +72,9 @@ async function compressRowsToHtml(rows, imgBg) {
   toRestore.forEach(([img, src]) => img.setAttribute('src', src))
 
   const tokenToCompressed = new Map()
-  await Promise.all([...srcToToken.entries()].map(async ([src, token]) => {
-    const max = tokenIsAvatar.get(token) ? AVATAR_MAX : CONTENT_MAX
-    tokenToCompressed.set(token, await compressBase64Img(src, 0.72, imgBg, max, max))
+  await Promise.all([...tokenInfo.entries()].map(async ([token, { src, bg, isAvatar }]) => {
+    const max = isAvatar ? AVATAR_MAX : CONTENT_MAX
+    tokenToCompressed.set(token, await compressBase64Img(src, 0.72, bg, max, max))
   }))
   let finalInner = inner
   tokenToCompressed.forEach((compressed, token) => { finalInner = finalInner.replaceAll(token, compressed) })
@@ -69,18 +82,18 @@ async function compressRowsToHtml(rows, imgBg) {
 }
 
 // Roll20/코코포리아 미리보기 DOM → 클립보드용 HTML 조각 (이미지 압축 포함, 섹션 단위)
-async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, imgBg }) {
+async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, mode }) {
   const rows = getFilteredRows(elId, includeSadam)
   const slice = rows.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
-  const finalInner = await compressRowsToHtml(slice, imgBg)
-  const html = `<style>img{background-color:${imgBg}!important;max-width:100%!important}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
+  const finalInner = await compressRowsToHtml(slice, IMG_BG_RESOLVERS[mode])
+  const html = `<style>img{background-color:${DEFAULT_IMG_BG[mode]}!important;max-width:100%!important}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
   await copyHtmlToClipboard(html)
 }
 
 // Roll20/코코포리아 로그 전체 → 청크 없이 통짜 HTML 문서 파일로 다운로드 (PDF처럼 한 문서로 보는 용도)
-async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, imgBg, title }) {
+async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, mode, title }) {
   const rows = getFilteredRows(elId, includeSadam)
-  const finalInner = await compressRowsToHtml(rows, imgBg)
+  const finalInner = await compressRowsToHtml(rows, IMG_BG_RESOLVERS[mode])
   const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -91,7 +104,7 @@ async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, i
 *{box-sizing:border-box;}
 html,body{margin:0;width:100%;max-width:100%;overflow-x:hidden;}
 body{background:${bgColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
-img{background-color:${imgBg}!important;max-width:100%!important}
+img{background-color:${DEFAULT_IMG_BG[mode]}!important;max-width:100%!important}
 ${templateCss || ''}
 </style>
 </head>
@@ -146,8 +159,7 @@ export default function ConvertPage({ app }) {
     await copyPreviewChunk({
       elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
       chunkIndex: i, includeSadam, templateCss,
-      bgColor: PREVIEW_BG[mode],
-      imgBg: PREVIEW_IMG_BG[mode],
+      bgColor: PREVIEW_BG[mode], mode,
     })
     toast(`섹션 ${i + 1} 복사 완료!`)
   }
@@ -161,8 +173,7 @@ export default function ConvertPage({ app }) {
       await downloadPreviewHtml({
         elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
         includeSadam, templateCss,
-        bgColor: PREVIEW_BG[mode],
-        imgBg: PREVIEW_IMG_BG[mode],
+        bgColor: PREVIEW_BG[mode], mode,
         title: `${title || fileName.replace(/\.(html|zip)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
       })
       toast('HTML 다운로드 완료!')

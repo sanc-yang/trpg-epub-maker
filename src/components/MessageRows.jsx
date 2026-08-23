@@ -78,8 +78,11 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   }
 
   // 일반: 아바타 컬럼 있음, iconUrl 없으면 빈 공간만
+  // data-dialogue: 캐릭터 대사(파란 배경)인지 표시 — 롤템플릿 등 다른 배경 위의
+  // 이미지를 압축할 때 대사 배경색(파랑)을 잘못 채우지 않기 위한 마커
+  const isDialogue = msg.type === 'general' || msg.type === 'rollresult'
   return (
-    <div style={{
+    <div data-dialogue={isDialogue ? 'true' : undefined} style={{
       display: 'flex',
       gap: 10,
       padding: isContinuation ? '2px 10px' : '6px 10px',
