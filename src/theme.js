@@ -29,7 +29,7 @@ export function makeTheme(isDark) {
     inputBg: 'rgba(255,255,255,0.50)', inputBorder: 'rgba(180,180,210,0.55)',
     shadow: '0 4px 28px rgba(100,80,160,0.08)',
     hover: 'rgba(255,255,255,0.50)',
-    drawerBg: 'rgba(255,255,255,0.50)',
+    drawerBg: 'rgba(255,255,255,0.92)', // 모바일 드로어는 뒤 콘텐츠를 가려야 해서 투명도 예외
   }
 }
 
