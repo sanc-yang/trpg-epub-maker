@@ -5,6 +5,7 @@ import SegControl from '../components/SegControl'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
 import CopyChunksPopover from '../components/CopyChunksPopover'
+import BookInfoFields from '../components/BookInfoFields'
 import { MessageRow, CcfoliaMessageRow } from '../components/MessageRows'
 import { annotate } from '../utils/annotateMessages'
 import { generatePreviewHtml, messagesToBlogHtml } from '../utils/generateEpub'
@@ -74,7 +75,8 @@ export default function ConvertPage({ app }) {
     handleFileDrop, fileName, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
-    title, templateCss, isGenerating, handleDownload, handlePdf,
+    title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage,
+    templateCss, isGenerating, handleDownload, handlePdf,
     setShowAvatarManager,
   } = app
 
@@ -267,7 +269,15 @@ export default function ConvertPage({ app }) {
 
       {/* eBook 패널 */}
       {selectedMode === 'epub' && (
-        <div style={{ ...G, borderRadius: 16, overflow: 'hidden', marginBottom: 30 }}>
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <BookInfoFields
+              t={t} title={title} setTitle={setTitle} author={author} setAuthor={setAuthor}
+              coverImage={coverImage} setCoverImage={setCoverImage}
+              onGoCoverGenerator={() => setPage('cover')}
+            />
+          </div>
+          <div style={{ ...G, borderRadius: 16, overflow: 'hidden', marginBottom: 30 }}>
           <div className="panel-bar" style={{ background: t.glass, borderBottom: `1px solid ${t.glassBorder}` }}>
             <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -304,7 +314,8 @@ export default function ConvertPage({ app }) {
             style={{ width: '100%', height: 600, border: 'none', background: '#fff' }}
             title="eBook 본문 미리보기"
           />
-        </div>
+          </div>
+        </>
       )}
 
       {/* Roll20 / 코코포리아 스타일 패널 */}
