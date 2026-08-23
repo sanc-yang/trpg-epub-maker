@@ -3,7 +3,7 @@ import { Sun, Moon } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
-import { generateEpub, DEFAULT_BODY_FONT } from './utils/generateEpub'
+import { generateEpub, parseEpubMeta, patchEpubCover, DEFAULT_BODY_FONT } from './utils/generateEpub'
 import { makeTheme, styles } from './theme'
 import { useMediaQuery } from './hooks'
 import { SHOW_THEME_TOGGLE } from './featureFlags'
@@ -77,11 +77,22 @@ export default function App() {
   const [author, setAuthor] = useState('')
   const [coverImage, setCoverImage] = useState(null)
 
+  // 기존에 만든 .epub 파일을 직접 업로드해 책 정보/표지만 다시 고치는 경로.
+  // 로그 변환 플로우와 완전히 무관하게 동작해야 해서 title/author/coverImage를
+  // 공유하지 않고 따로 둠 — 로그 변환 중이던 내용을 절대 건드리지 않음.
+  // { buffer, fileName } | null — 있으면 다운로드 시 로그 재변환 대신 이 원본을 패치함
+  const [uploadedEpub, setUploadedEpub] = useState(null)
+  const [epubTitle, setEpubTitle] = useState('')
+  const [epubAuthor, setEpubAuthor] = useState('')
+  const [epubCoverImage, setEpubCoverImage] = useState(null)
+
   // 표지 생성기에서 「이 표지로 적용하기」 후 돌아갈 페이지. 기본값 = 책 정보 수정.
   // 로그 변환 화면의 표지 생성기 링크만 'convert'로 바꿔 돌아갈 곳을 지정함.
   const [coverReturnTo, setCoverReturnTo] = useState('bookinfo')
   const navigate = useCallback((p) => {
     if (p === 'cover') setCoverReturnTo('bookinfo') // LNB로 직접 들어오면 기본 반환처로
+    // 로그 변환 화면은 업로드된 epub으로 할 수 있는 게 없으니 들어가면 비움
+    if (p === 'convert') setUploadedEpub(null)
     setPage(p)
   }, [])
 
@@ -113,6 +124,7 @@ export default function App() {
     setMessages(parsed)
     setTemplateCss(css || '')
     setCcfoliaAvatars({})
+    setUploadedEpub(null)
     setStats({
       total: parsed.length,
       general: parsed.filter(m => m.type === 'general' && !m.isSadam).length,
@@ -123,7 +135,7 @@ export default function App() {
       emote: isRoll20 ? parsed.filter(m => m.type === 'emote').length : 0,
       template: isRoll20 ? parsed.filter(m => m.type === 'template').length : 0,
     })
-  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setCcfoliaAvatars, setStats])
+  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setCcfoliaAvatars, setUploadedEpub, setStats])
 
   // ─── Roll20 ──────────────────────────────────────────────────
   const handleRoll20File = useCallback((file) => {
@@ -206,26 +218,53 @@ export default function App() {
     setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
   }, [source, messages.length, fileName])
 
+  // ─── 기존 .epub 업로드 (책 정보/표지만 다시 고치기) ────────────
+  // 로그 변환 중이던 상태(messages 등)는 절대 건드리지 않음 — 서로 완전히 무관한 플로우.
+  const handleEpubUpload = useCallback((file) => {
+    if (!file || !file.name.endsWith('.epub')) return
+    file.arrayBuffer().then(async (buffer) => {
+      try {
+        const meta = await parseEpubMeta(buffer)
+        setUploadedEpub({ buffer, fileName: file.name })
+        setEpubTitle(meta.title || file.name.replace(/\.epub$/i, ''))
+        setEpubAuthor(meta.author || '')
+        setEpubCoverImage(meta.coverImage || null)
+        toast('epub 파일을 불러왔습니다')
+      } catch {
+        toast('epub 파일을 읽을 수 없습니다. 형식을 확인해주세요.', 'error')
+      }
+    })
+  }, [toast])
+
   // ─── 다운로드 ────────────────────────────────────────────────
   const handleDownload = useCallback(async () => {
-    if (!messages.length || isGenerating) return
+    if ((!messages.length && !uploadedEpub) || isGenerating) return
     setIsGenerating(true)
     try {
-      const blob = await generateEpub(messagesWithAvatars, {
-        title, author, coverImage, coverTitle: title,
-        includeSadam, templateCss, bodyFont,
-      })
+      const blob = uploadedEpub
+        ? await patchEpubCover(uploadedEpub.buffer, { title: epubTitle, author: epubAuthor, coverImage: epubCoverImage })
+        : await generateEpub(messagesWithAvatars, {
+            title, author, coverImage, coverTitle: title,
+            includeSadam, templateCss, bodyFont,
+          })
+      const downloadName = uploadedEpub
+        ? (epubTitle || uploadedEpub.fileName.replace(/\.epub$/i, ''))
+        : (title || fileName.replace(/\.(html|zip)$/i, ''))
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${title || fileName.replace(/\.(html|zip)$/i, '')}.epub`
+      a.download = `${downloadName}.epub`
       a.click()
       URL.revokeObjectURL(url)
       toast('epub 다운로드 완료!')
+      // epub 편집 플로우는 다운로드가 끝이라 처음 업로드 화면으로 되돌림
+      if (uploadedEpub) {
+        setUploadedEpub(null); setEpubTitle(''); setEpubAuthor(''); setEpubCoverImage(null)
+      }
     } finally {
       setIsGenerating(false)
     }
-  }, [messages, messagesWithAvatars, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss, bodyFont, toast])
+  }, [messages, messagesWithAvatars, uploadedEpub, epubTitle, epubAuthor, epubCoverImage, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss, bodyFont, toast])
 
   // ─── 페이지에 넘길 묶음 ───────────────────────────────────────
   const app = {
@@ -237,6 +276,8 @@ export default function App() {
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,
     coverReturnTo, setCoverReturnTo,
+    uploadedEpub, handleEpubUpload,
+    epubTitle, setEpubTitle, epubAuthor, setEpubAuthor, epubCoverImage, setEpubCoverImage,
     isGenerating, handleDownload,
     showAvatarManager, setShowAvatarManager,
     hideAvatarArea, setHideAvatarArea,

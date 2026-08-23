@@ -35,10 +35,19 @@ function TemplateThumb({ tpl }) {
 }
 
 export default function CoverPage({ app }) {
-  const { t, messages, title, author, setCoverImage, setPage, coverReturnTo, toast } = app
+  const {
+    t, messages, uploadedEpub, handleEpubUpload,
+    title, author, setCoverImage,
+    epubTitle, epubAuthor, setEpubCoverImage,
+    setPage, coverReturnTo, toast,
+  } = app
   const S = styles(t)
 
-  const hasEbook = messages.length > 0
+  const hasEbook = messages.length > 0 || !!uploadedEpub
+  // 업로드한 epub을 편집 중이면 그쪽 제목/작가명·표지 반영처를 씀 — 로그 변환 쪽과 안 섞임
+  const activeTitle = uploadedEpub ? epubTitle : title
+  const activeAuthor = uploadedEpub ? epubAuthor : author
+  const applyCoverImage = uploadedEpub ? setEpubCoverImage : setCoverImage
 
   // 진입 시 목적을 먼저 고름. null = 선택 화면.
   // 'apply'  = 기존 eBook 표지 수정 → 「이 표지로 적용하기」 활성
@@ -51,7 +60,7 @@ export default function CoverPage({ app }) {
   const frameRef = useRef(null)
   const dragRef = useRef({ on: false, x: 0, y: 0 })
 
-  const [st, setSt] = useState(() => makeInitialCoverState(title, author))
+  const [st, setSt] = useState(() => makeInitialCoverState(activeTitle, activeAuthor))
   const [imgName, setImgName] = useState('')
 
   // 책 정보에서 제목·작가명이 바뀌면 따라감 (사용자가 표지에서 직접 고친 뒤에는 덮지 않음).
@@ -59,8 +68,8 @@ export default function CoverPage({ app }) {
   const touched = useRef(false)
   useEffect(() => {
     if (touched.current) return
-    setSt(s => ({ ...s, title: title || SAMPLE_TITLE, author: author || SAMPLE_AUTHOR }))
-  }, [title, author])
+    setSt(s => ({ ...s, title: activeTitle || SAMPLE_TITLE, author: activeAuthor || SAMPLE_AUTHOR }))
+  }, [activeTitle, activeAuthor])
 
   // 상태가 바뀔 때마다 다시 그림.
   // mode 를 의존성에 넣는 이유 = 진입 선택 화면에는 canvas 가 없어서,
@@ -132,7 +141,7 @@ export default function CoverPage({ app }) {
 
   const useAsCover = () => {
     if (!canApply) return
-    setCoverImage(canvasRef.current.toDataURL('image/png'))
+    applyCoverImage(canvasRef.current.toDataURL('image/png'))
     toast('표지를 적용했습니다')
     setPage(coverReturnTo)
   }
@@ -183,6 +192,7 @@ export default function CoverPage({ app }) {
         <EmptyState
           t={t}
           onGoConvert={() => setPage('convert')}
+          onUploadEpub={handleEpubUpload}
           desc={<>표지를 적용할 eBook이 아직 없습니다.<br />eBook 없이 표지만 만들려면 아래에서 다시 골라주세요.</>}
         />
         <div style={{ textAlign: 'center', marginTop: 14 }}>

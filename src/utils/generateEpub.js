@@ -87,6 +87,109 @@ export async function generateEpub(messages, meta = {}) {
   return blob
 }
 
+// ─── 기존 EPUB 불러오기/패치 (책 정보 · 표지만 다시 고치기) ───────
+// 챕터 내용은 건드리지 않고 content.opf의 제목/작가·표지 파일만 바꿔서 재압축.
+// 그래서 로그를 다시 파싱할 필요 없이 이미 만들어둔 .epub 파일 자체를 업로드해서 고칠 수 있음.
+
+async function findOpfPath(zip) {
+  const containerXml = await zip.file('META-INF/container.xml').async('text')
+  const containerDoc = new DOMParser().parseFromString(containerXml, 'application/xml')
+  return containerDoc.querySelector('rootfile').getAttribute('full-path')
+}
+
+function opfDirOf(opfPath) {
+  const i = opfPath.lastIndexOf('/')
+  return i === -1 ? '' : opfPath.slice(0, i + 1)
+}
+
+function findCoverItem(opfDoc) {
+  const items = [...opfDoc.getElementsByTagName('item')]
+  const coverMeta = [...opfDoc.getElementsByTagName('meta')].find(m => m.getAttribute('name') === 'cover')
+  const coverId = coverMeta?.getAttribute('content')
+  return (coverId && items.find(it => it.getAttribute('id') === coverId))
+    || items.find(it => (it.getAttribute('properties') || '').includes('cover-image'))
+}
+
+/** 업로드된 .epub 파일에서 제목/작가명/표지 이미지를 읽어옴 */
+export async function parseEpubMeta(arrayBuffer) {
+  const zip = await JSZip.loadAsync(arrayBuffer)
+  const opfPath = await findOpfPath(zip)
+  const opfDir = opfDirOf(opfPath)
+  const opfXml = await zip.file(opfPath).async('text')
+  const opfDoc = new DOMParser().parseFromString(opfXml, 'application/xml')
+
+  const title = opfDoc.getElementsByTagName('dc:title')[0]?.textContent || ''
+  const author = opfDoc.getElementsByTagName('dc:creator')[0]?.textContent || ''
+
+  let coverImage = null
+  const coverItem = findCoverItem(opfDoc)
+  if (coverItem) {
+    const href = coverItem.getAttribute('href')
+    const mediaType = coverItem.getAttribute('media-type') || 'image/png'
+    const coverFile = zip.file(opfDir + href)
+    if (coverFile) {
+      const b64 = await coverFile.async('base64')
+      coverImage = `data:${mediaType};base64,${b64}`
+    }
+  }
+
+  return { title, author, coverImage }
+}
+
+/**
+ * 업로드된 .epub 원본에 새 제목/작가명/표지를 반영한 새 Blob을 반환.
+ * 항상 원본(arrayBuffer)을 기준으로 다시 패치하므로 반복 다운로드해도 누적 손상 없음.
+ */
+export async function patchEpubCover(arrayBuffer, { title, author, coverImage }) {
+  const zip = await JSZip.loadAsync(arrayBuffer)
+  const opfPath = await findOpfPath(zip)
+  const opfDir = opfDirOf(opfPath)
+  const opfXml = await zip.file(opfPath).async('text')
+  const opfDoc = new DOMParser().parseFromString(opfXml, 'application/xml')
+
+  const titleEl = opfDoc.getElementsByTagName('dc:title')[0]
+  if (titleEl) titleEl.textContent = title || ''
+  const creatorEl = opfDoc.getElementsByTagName('dc:creator')[0]
+  if (creatorEl) creatorEl.textContent = author || ''
+
+  const coverItem = findCoverItem(opfDoc)
+  const oldCoverFileName = coverItem?.getAttribute('href')
+
+  // 새 표지 준비: 업로드 이미지 있으면 그걸, 없으면 canvas 렌더링으로 대체
+  let newCoverFileName, newCoverMime, newCoverB64
+  const m = coverImage?.match(/^data:([^;]+);base64,(.+)$/)
+  if (m) {
+    newCoverMime = m[1]
+    newCoverB64 = m[2]
+    newCoverFileName = `cover.${COVER_EXT_MAP[newCoverMime] || 'jpg'}`
+  } else {
+    const dataUrl = await renderCoverToPng({ coverTitle: title, author })
+    newCoverMime = 'image/png'
+    newCoverB64 = dataUrl.replace(/^data:image\/png;base64,/, '')
+    newCoverFileName = 'cover.png'
+  }
+
+  if (oldCoverFileName && oldCoverFileName !== newCoverFileName) {
+    zip.remove(opfDir + oldCoverFileName)
+  }
+  zip.file(opfDir + newCoverFileName, newCoverB64, { base64: true })
+  if (coverItem) {
+    coverItem.setAttribute('href', newCoverFileName)
+    coverItem.setAttribute('media-type', newCoverMime)
+  }
+  zip.file(opfDir + 'cover.xhtml', coverXhtml({
+    coverFileName: m ? newCoverFileName : null,
+    coverTitle: title,
+    author,
+  }))
+
+  // DOMParser('application/xml')로 만든 문서는 serializeToString이 XML 선언을 이미 포함해서 내보냄
+  // (직접 붙이면 선언이 두 번 들어가 다시 파싱할 때 parsererror가 남)
+  zip.file(opfPath, new XMLSerializer().serializeToString(opfDoc))
+
+  return zip.generateAsync({ type: 'blob', mimeType: 'application/epub+zip' })
+}
+
 // ─── Canvas 표지 렌더링 (이미지 없을 때 cover.png 생성) ──────────
 
 async function renderCoverToPng({ coverTitle, author }, W = 600, H = 900) {
