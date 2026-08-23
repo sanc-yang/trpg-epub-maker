@@ -18,7 +18,7 @@ const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
 
 // 복사/다운로드 HTML의 배경색. 흰색 그대로 두면 빈 페이지처럼 보여서
 // Roll20 쪽도 코코포리아처럼 은은한 색을 깔아줌 (메시지 행 색상과는 구분되게)
-const PREVIEW_BG = { roll20: '#ecebe6', ccfolia: '#0e0e16' }
+const PREVIEW_BG = { roll20: '#f0f0f0', ccfolia: '#0e0e16' }
 const PREVIEW_IMG_BG = { roll20: '#e8f4ff', ccfolia: '#f5f5f5' }
 
 function getFilteredRows(elId, includeSadam) {
