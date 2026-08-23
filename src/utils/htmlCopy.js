@@ -33,3 +33,14 @@ export async function copyHtmlToClipboard(html) {
     ta.remove()
   }
 }
+
+/** HTML 문자열을 .html 파일로 다운로드 */
+export function downloadHtmlFile(html, filename) {
+  const blob = new Blob([html], { type: 'text/html' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename.endsWith('.html') ? filename : `${filename}.html`
+  a.click()
+  URL.revokeObjectURL(url)
+}

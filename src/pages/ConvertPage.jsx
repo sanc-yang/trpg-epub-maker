@@ -4,27 +4,28 @@ import { glass, styles } from '../theme'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
 import CopyChunksPopover from '../components/CopyChunksPopover'
+import Spinner from '../components/Spinner'
 import BookInfoFields from '../components/BookInfoFields'
 import { MessageRow, CcfoliaMessageRow } from '../components/MessageRows'
 import { annotate } from '../utils/annotateMessages'
 import { generatePreviewHtml, messagesToBlogHtml } from '../utils/generateEpub'
-import { compressBase64Img, copyHtmlToClipboard } from '../utils/htmlCopy'
+import { compressBase64Img, copyHtmlToClipboard, downloadHtmlFile } from '../utils/htmlCopy'
 import { SHOW_CCFOLIA_URL_MODE } from '../featureFlags'
 import PageHeader from '../components/PageHeader'
 
 const HTML_CHUNK_SIZE = 2000 // Roll20/코코포리아 HTML 복사 — 섹션당 메시지 수
 const EBOOK_CHUNK_SIZE = 10000 // eBook HTML 복사 — 섹션당 메시지 수
 
-// Roll20/코코포리아 미리보기 DOM → 클립보드용 HTML (이미지 압축 포함)
-async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, imgBg }) {
+function getFilteredRows(elId, includeSadam) {
   const el = document.getElementById(elId)
-  if (!el) return
-  const children = Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
-  const slice = children.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
+  if (!el) return []
+  return Array.from(el.children).filter(c => includeSadam || c.getAttribute('data-sadam') !== 'true')
+}
 
-  // 고유 data: 이미지만 모아 압축 (같은 이미지 중복 압축 방지)
+// rows 안의 data: 이미지를 canvas로 압축해 outerHTML 문자열로 합침 (같은 이미지 중복 압축 방지)
+async function compressRowsToHtml(rows, imgBg) {
   const srcToToken = new Map()
-  slice.forEach(row => {
+  rows.forEach(row => {
     row.querySelectorAll('img[src^="data:"]').forEach(img => {
       const src = img.getAttribute('src')
       if (!srcToToken.has(src)) srcToToken.set(src, `__T${srcToToken.size}__`)
@@ -32,7 +33,7 @@ async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, b
   })
 
   const toRestore = []
-  slice.forEach(row => {
+  rows.forEach(row => {
     row.querySelectorAll('img[src^="data:"]').forEach(img => {
       const src = img.getAttribute('src')
       toRestore.push([img, src])
@@ -40,7 +41,7 @@ async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, b
     })
   })
 
-  const inner = slice.map(c => c.outerHTML).join('')
+  const inner = rows.map(c => c.outerHTML).join('')
   toRestore.forEach(([img, src]) => img.setAttribute('src', src))
 
   const tokenToCompressed = new Map()
@@ -49,9 +50,38 @@ async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, b
   }))
   let finalInner = inner
   tokenToCompressed.forEach((compressed, token) => { finalInner = finalInner.replaceAll(token, compressed) })
+  return finalInner
+}
 
+// Roll20/코코포리아 미리보기 DOM → 클립보드용 HTML 조각 (이미지 압축 포함, 섹션 단위)
+async function copyPreviewChunk({ elId, chunkIndex, includeSadam, templateCss, bgColor, imgBg }) {
+  const rows = getFilteredRows(elId, includeSadam)
+  const slice = rows.slice(chunkIndex * HTML_CHUNK_SIZE, (chunkIndex + 1) * HTML_CHUNK_SIZE)
+  const finalInner = await compressRowsToHtml(slice, imgBg)
   const html = `<style>img{background-color:${imgBg}!important;max-width:100%!important}${templateCss || ''}</style><div style="background:${bgColor};padding:8px;">${finalInner}</div>`
   await copyHtmlToClipboard(html)
+}
+
+// Roll20/코코포리아 로그 전체 → 청크 없이 통짜 HTML 문서 파일로 다운로드 (PDF처럼 한 문서로 보는 용도)
+async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, imgBg, title }) {
+  const rows = getFilteredRows(elId, includeSadam)
+  const finalInner = await compressRowsToHtml(rows, imgBg)
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>${title}</title>
+<style>
+body{margin:0;background:${bgColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+img{background-color:${imgBg}!important;max-width:100%!important}
+${templateCss || ''}
+</style>
+</head>
+<body>
+<div style="max-width:820px;margin:0 auto;padding:8px;background:${bgColor};">${finalInner}</div>
+</body>
+</html>`
+  downloadHtmlFile(html, title)
 }
 
 const STAT_ROWS = {
@@ -102,6 +132,25 @@ export default function ConvertPage({ app }) {
       imgBg: mode === 'roll20' ? '#e8f4ff' : '#f5f5f5',
     })
     toast(`섹션 ${i + 1} 복사 완료!`)
+  }
+
+  // HTML 다운로드 — 청크 없이 전체를 한 문서로 (PDF처럼 통짜로 보는 용도)
+  const [downloadingHtml, setDownloadingHtml] = useState(null) // null | 'roll20' | 'ccfolia'
+  const handleDownloadPreviewHtml = async (mode) => {
+    if (downloadingHtml) return
+    setDownloadingHtml(mode)
+    try {
+      await downloadPreviewHtml({
+        elId: mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs',
+        includeSadam, templateCss,
+        bgColor: mode === 'ccfolia' ? '#0e0e16' : '#ffffff',
+        imgBg: mode === 'roll20' ? '#e8f4ff' : '#f5f5f5',
+        title: `${title || fileName.replace(/\.(html|zip)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
+      })
+      toast('HTML 다운로드 완료!')
+    } finally {
+      setDownloadingHtml(null)
+    }
   }
 
   // 코코포리아 방 입력 유효성
@@ -355,6 +404,15 @@ export default function ConvertPage({ app }) {
                     )
                   })()}
                 </div>
+                <button type="button" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
+                  ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                  opacity: downloadingHtml ? 0.5 : 1, cursor: downloadingHtml ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                }}>
+                  {downloadingHtml === selectedMode
+                    ? <><Spinner size={13} color={t.textSub} />다운로드 중...</>
+                    : <><Download size={13} />HTML 다운로드</>}
+                </button>
                 <button type="button" onClick={() => handlePdf(selectedMode)} style={{
                   ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
                   display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
