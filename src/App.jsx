@@ -222,36 +222,6 @@ export default function App() {
     }
   }, [messages, messagesWithAvatars, title, author, coverImage, fileName, isGenerating, includeSadam, templateCss, bodyFont, toast])
 
-  // PDF — 브라우저 인쇄. body 직하에 print 전용 div 를 만들어
-  // 글래스 컨테이너의 overflow/containing block 영향을 피함.
-  const handlePdf = useCallback((mode) => {
-    const el = document.getElementById(mode === 'roll20' ? 'roll20-preview-msgs' : 'ccfolia-preview-msgs')
-    if (!el) return
-    const bgColor = mode === 'ccfolia' ? '#0e0e16' : '#fff'
-
-    const printDiv = document.createElement('div')
-    printDiv.id = 'trpg-pdf-print'
-    printDiv.innerHTML = el.innerHTML
-    printDiv.style.cssText = `background:${bgColor};margin:0;padding:0;`
-    document.body.appendChild(printDiv)
-
-    const style = document.createElement('style')
-    style.textContent =
-      '@media print{' +
-      'body > *:not(#trpg-pdf-print){display:none!important;}' +
-      '#trpg-pdf-print{display:block!important;}' +
-      'body{margin:0;padding:0;background:' + bgColor + '!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}' +
-      '}'
-    document.head.appendChild(style)
-
-    const cleanup = () => {
-      printDiv.remove(); style.remove()
-      window.removeEventListener('afterprint', cleanup)
-    }
-    window.addEventListener('afterprint', cleanup)
-    window.print()
-  }, [])
-
   // ─── 페이지에 넘길 묶음 ───────────────────────────────────────
   const app = {
     t, page, setPage, toast,
@@ -262,7 +232,7 @@ export default function App() {
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,
     coverReturnTo, setCoverReturnTo,
-    isGenerating, handleDownload, handlePdf,
+    isGenerating, handleDownload,
     showAvatarManager, setShowAvatarManager,
     hideAvatarArea, setHideAvatarArea,
   }

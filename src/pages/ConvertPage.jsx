@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Printer, Clipboard } from 'lucide-react'
+import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Clipboard } from 'lucide-react'
 import { glass, styles } from '../theme'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
@@ -136,7 +136,7 @@ export default function ConvertPage({ app }) {
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage, setCoverReturnTo,
-    templateCss, isGenerating, handleDownload, handlePdf,
+    templateCss, isGenerating, handleDownload,
     setShowAvatarManager, hideAvatarArea, setHideAvatarArea,
   } = app
 
@@ -437,19 +437,13 @@ export default function ConvertPage({ app }) {
                     })()}
                   </div>
                   <button type="button" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
-                    ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                    ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
                     opacity: downloadingHtml ? 0.5 : 1, cursor: downloadingHtml ? 'not-allowed' : 'pointer',
                     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                   }}>
                     {downloadingHtml === selectedMode
-                      ? <><Spinner size={13} color={t.textSub} />다운로드 중...</>
+                      ? <><Spinner size={13} color={t.accentFg} />다운로드 중...</>
                       : <><Download size={13} />HTML 다운로드</>}
-                  </button>
-                  <button type="button" onClick={() => handlePdf(selectedMode)} style={{
-                    ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
-                    display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-                  }}>
-                    <Printer size={13} />PDF 다운로드
                   </button>
                 </div>
               </div>
