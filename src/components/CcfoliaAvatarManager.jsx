@@ -20,7 +20,7 @@ export default function CcfoliaAvatarManager({ messages, avatars, setAvatars, on
       background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
     }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div style={{
-        background: t.surface, borderRadius: 16, padding: 24,
+        background: t.drawerBg, borderRadius: 16, padding: 24,
         width: '90%', maxWidth: 480, maxHeight: '80vh',
         display: 'flex', flexDirection: 'column', gap: 16,
         boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
@@ -83,7 +83,7 @@ export default function CcfoliaAvatarManager({ messages, avatars, setAvatars, on
         <button type="button" onClick={onClose} style={{
           padding: '8px 0', borderRadius: 8, border: `1px solid ${t.borderSub}`,
           background: 'transparent', color: t.textSub, fontSize: '0.85em', cursor: 'pointer',
-        }}>닫기</button>
+        }}>적용하기</button>
       </div>
     </div>
   )

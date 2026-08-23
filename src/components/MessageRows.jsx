@@ -14,6 +14,8 @@ const R20_BORDER = '1px solid rgba(0,0,0,0.06)'
 
 export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   const isCentered = msg.type === 'desc' || msg.type === 'emote'
+  // 아바타 칸이 있을 땐 그 너비만큼 들여써서 정렬, 없으면 다른 줄과 같은 10px
+  const avatarGutter = hideAvatar ? 10 : AVATAR_SIZE + 18
 
   // desc / emote: 아바타 없이 원래 스타일 유지
   if (isCentered) {
@@ -21,7 +23,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     return (
       <div style={{
         background: isDesc ? 'rgba(0,0,0,0.04)' : (TYPE_COLOR[msg.type] || '#fff'),
-        padding: '6px 10px 6px ' + (AVATAR_SIZE + 18) + 'px',
+        padding: `6px 10px 6px ${avatarGutter}px`,
         textAlign: 'center',
         color: isDesc ? '#000' : '#8b4b1a',
         borderBottom: isLastInGroup ? R20_BORDER : 'none',
@@ -64,7 +66,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   if (isSadam) {
     return (
       <div data-sadam="true" style={{
-        padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${AVATAR_SIZE + 18}px`,
+        padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${avatarGutter}px`,
         background: 'rgba(0,0,0,0.04)',
         opacity: 0.75,
         fontSize: '0.9em',

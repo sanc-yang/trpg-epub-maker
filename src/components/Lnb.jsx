@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Menu, X } from 'lucide-react'
+import { glass } from '../theme'
+import { NAV_GROUPS } from '../navConfig'
 
-// lucide-react 는 브랜드 로고를 제공하지 않아 GitHub 마크만 인라인 SVG로 사용
+// lucide-react 는 브랜드 로고를 제공하지 않아 GitHub·X 마크는 인라인 SVG로 사용
 function GithubIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
@@ -9,8 +11,14 @@ function GithubIcon({ size = 16 }) {
     </svg>
   )
 }
-import { glass } from '../theme'
-import { NAV_GROUPS } from '../navConfig'
+
+function XIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+      <path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.22-6.83-5.97 6.83H1.66l7.73-8.84L1.24 2.25h6.83l4.72 6.24ZM17.05 19.77h1.83L7.02 4.13H5.06Z" />
+    </svg>
+  )
+}
 
 const LOGO = (
   <svg width="26" height="26" viewBox="0 0 48 48" style={{ flexShrink: 0, display: 'block' }}>
@@ -65,25 +73,34 @@ function NavItem({ item, active, collapsed, onSelect, t }) {
   )
 }
 
-/** 사이드바 맨 아래 GitHub 링크 */
-function Footer({ collapsed, t }) {
+function FooterLink({ href, label, Icon, collapsed, t, first }) {
   return (
     <a
-      href="https://github.com/sanc-yang"
+      href={href}
       target="_blank" rel="noreferrer"
-      title={collapsed ? 'GitHub' : undefined}
+      title={collapsed ? label : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-        padding: collapsed ? '10px 0' : '9px 11px',
+        padding: collapsed ? '8px 0' : '7px 11px',
         justifyContent: collapsed ? 'center' : 'flex-start',
-        borderRadius: 9, textDecoration: 'none', marginTop: 'auto',
-        borderTop: `1px solid ${t.borderSub}`, paddingTop: collapsed ? 14 : 15,
+        borderRadius: 9, textDecoration: 'none',
         color: t.textMuted, fontSize: '0.84em', fontFamily: 'inherit',
+        ...(first ? { borderTop: `1px solid ${t.borderSub}`, marginTop: 'auto', paddingTop: collapsed ? 14 : 13 } : {}),
       }}
     >
-      <GithubIcon size={16} />
-      {!collapsed && <span>GitHub</span>}
+      <Icon size={16} />
+      {!collapsed && <span>{label}</span>}
     </a>
+  )
+}
+
+/** 사이드바 맨 아래 SNS 링크 — X, GitHub 순 */
+function Footer({ collapsed, t }) {
+  return (
+    <>
+      <FooterLink href="https://x.com/be_cool_tomato" label="X (Twitter)" Icon={XIcon} collapsed={collapsed} t={t} first />
+      <FooterLink href="https://github.com/sanc-yang/trpg-epub-maker" label="GitHub" Icon={GithubIcon} collapsed={collapsed} t={t} />
+    </>
   )
 }
 

@@ -28,7 +28,13 @@ export default function BookInfoPage({ app }) {
     <>
       <PageHeader title="책 정보 수정" desc="전자책의 제목 · 작가명 · 표지를 지정합니다" t={t} />
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+      <BookInfoFields
+        t={t} title={title} setTitle={setTitle} author={author} setAuthor={setAuthor}
+        coverImage={coverImage} setCoverImage={setCoverImage}
+        onGoCoverGenerator={() => { setCoverReturnTo('bookinfo'); setPage('cover') }}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
         <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
           ...S.btnPrimary, padding: '7px 16px', fontSize: '0.84em',
           opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
@@ -37,12 +43,6 @@ export default function BookInfoPage({ app }) {
           {isGenerating ? '생성 중...' : <><Download size={14} />수정한 epub 다운로드</>}
         </button>
       </div>
-
-      <BookInfoFields
-        t={t} title={title} setTitle={setTitle} author={author} setAuthor={setAuthor}
-        coverImage={coverImage} setCoverImage={setCoverImage}
-        onGoCoverGenerator={() => { setCoverReturnTo('bookinfo'); setPage('cover') }}
-      />
     </>
   )
 }
