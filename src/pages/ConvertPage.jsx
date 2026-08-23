@@ -349,30 +349,32 @@ export default function ConvertPage({ app }) {
             <span style={{ fontSize: '0.78em', color: t.textSub }}>eBook 본문 미리보기</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-              <div style={{ position: 'relative' }}>
-                <button type="button" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
-                  ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative' }}>
+                  <button type="button" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
+                    ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                    display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                  }}>
+                    <Clipboard size={13} />HTML 복사
+                  </button>
+                  {copyPopover === 'epub' && (
+                    <CopyChunksPopover
+                      label={`eBook · ${messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length}개 메시지`}
+                      chunkCount={Math.ceil(messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length / EBOOK_CHUNK_SIZE) || 1}
+                      onCopyChunk={handleCopyEbookChunk}
+                      onClose={() => setCopyPopover(null)}
+                      accent={t.accent} accentFg={t.accentFg}
+                    />
+                  )}
+                </div>
+                <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
+                  ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
+                  opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
                   display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                 }}>
-                  <Clipboard size={13} />HTML 복사
+                  {isGenerating ? '생성 중...' : <><Download size={13} />epub 다운로드</>}
                 </button>
-                {copyPopover === 'epub' && (
-                  <CopyChunksPopover
-                    label={`eBook · ${messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length}개 메시지`}
-                    chunkCount={Math.ceil(messagesWithAvatars.filter(m => includeSadam || !m.isSadam).length / EBOOK_CHUNK_SIZE) || 1}
-                    onCopyChunk={handleCopyEbookChunk}
-                    onClose={() => setCopyPopover(null)}
-                    accent={t.accent} accentFg={t.accentFg}
-                  />
-                )}
               </div>
-              <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
-                ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
-                opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
-                display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-              }}>
-                {isGenerating ? '생성 중...' : <><Download size={13} />epub 다운로드</>}
-              </button>
             </div>
           </div>
           <iframe
@@ -397,41 +399,43 @@ export default function ConvertPage({ app }) {
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
-                <div style={{ position: 'relative' }}>
-                  <button type="button" onClick={() => setCopyPopover(v => v === selectedMode ? null : selectedMode)} style={{
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative' }}>
+                    <button type="button" onClick={() => setCopyPopover(v => v === selectedMode ? null : selectedMode)} style={{
+                      ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                      display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                    }}>
+                      <Clipboard size={13} />HTML 복사
+                    </button>
+                    {copyPopover === selectedMode && (() => {
+                      const total = previewRows.length
+                      return (
+                        <CopyChunksPopover
+                          label={`${isR20 ? 'Roll20' : '코코포리아'} · ${total}개 메시지`}
+                          chunkCount={Math.ceil(total / HTML_CHUNK_SIZE) || 1}
+                          onCopyChunk={(i) => handleCopyPreviewChunk(selectedMode, i)}
+                          onClose={() => setCopyPopover(null)}
+                          accent={t.accent} accentFg={t.accentFg}
+                        />
+                      )
+                    })()}
+                  </div>
+                  <button type="button" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
                     ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+                    opacity: downloadingHtml ? 0.5 : 1, cursor: downloadingHtml ? 'not-allowed' : 'pointer',
                     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                   }}>
-                    <Clipboard size={13} />HTML 복사
+                    {downloadingHtml === selectedMode
+                      ? <><Spinner size={13} color={t.textSub} />다운로드 중...</>
+                      : <><Download size={13} />HTML 다운로드</>}
                   </button>
-                  {copyPopover === selectedMode && (() => {
-                    const total = previewRows.length
-                    return (
-                      <CopyChunksPopover
-                        label={`${isR20 ? 'Roll20' : '코코포리아'} · ${total}개 메시지`}
-                        chunkCount={Math.ceil(total / HTML_CHUNK_SIZE) || 1}
-                        onCopyChunk={(i) => handleCopyPreviewChunk(selectedMode, i)}
-                        onClose={() => setCopyPopover(null)}
-                        accent={t.accent} accentFg={t.accentFg}
-                      />
-                    )
-                  })()}
+                  <button type="button" onClick={() => handlePdf(selectedMode)} style={{
+                    ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
+                    display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+                  }}>
+                    <Printer size={13} />PDF 다운로드
+                  </button>
                 </div>
-                <button type="button" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
-                  ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
-                  opacity: downloadingHtml ? 0.5 : 1, cursor: downloadingHtml ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-                }}>
-                  {downloadingHtml === selectedMode
-                    ? <><Spinner size={13} color={t.textSub} />다운로드 중...</>
-                    : <><Download size={13} />HTML 다운로드</>}
-                </button>
-                <button type="button" onClick={() => handlePdf(selectedMode)} style={{
-                  ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
-                  display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
-                }}>
-                  <Printer size={13} />PDF 다운로드
-                </button>
               </div>
             </div>
             <div
