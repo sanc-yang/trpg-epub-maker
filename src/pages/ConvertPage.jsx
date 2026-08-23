@@ -3,6 +3,7 @@ import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Clipboard 
 import { glass, styles } from '../theme'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
+import ZoomableImage from '../components/ZoomableImage'
 import CopyChunksPopover from '../components/CopyChunksPopover'
 import Spinner from '../components/Spinner'
 import BookInfoFields from '../components/BookInfoFields'
@@ -274,17 +275,13 @@ export default function ConvertPage({ app }) {
         </DropZone>
       )}
 
-      {/* 로그 추출 가이드 — 아직 아무것도 안 올라간 상태에서만 노출 */}
+      {/* 로그 추출 가이드 — 아직 아무것도 안 올라간 상태에서만 노출, 드롭존과 같은 폭 */}
       {!fileName && !stats && (
-        <div style={{ marginBottom: 24, textAlign: 'center' }}>
-          <img
+        <div style={{ marginBottom: 24 }}>
+          <ZoomableImage
+            t={t}
             src={source === 'roll20' ? guideRoll20 : guideCcfolia}
             alt={source === 'roll20' ? 'Roll20 로그 추출 가이드' : '코코포리아 로그 추출 가이드'}
-            style={{
-              display: 'inline-block', maxWidth: '100%', width: 460,
-              borderRadius: 12, border: `1px solid ${t.glassBorder}`,
-              boxShadow: t.shadow,
-            }}
           />
         </div>
       )}
