@@ -398,15 +398,17 @@ function escHtml(str) {
 }
 
 // 노드 하나를 HTML 문자열로 변환. 모든 엘리먼트 구조와 inline style 그대로 보존.
+// 텍스트 노드의 개행/연속 공백은 원본 HTML이 예쁘게 들여쓰기된 흔적이라 일반 공백 1개로 합침.
+// 안 그러면 white-space:pre-wrap로 렌더링하는 화면(코코포리아 스타일 등)에서 의도치 않은 줄바꿈이 보임.
 function nodeToHtml(node) {
-  if (node.nodeType === Node.TEXT_NODE) return escHtml(node.textContent);
+  if (node.nodeType === Node.TEXT_NODE) return escHtml(node.textContent.replace(/\s+/g, ' '));
   if (node.nodeType === Node.ELEMENT_NODE) {
     if (node.classList.contains('dicegrouping')) {
       // "== $0" 아티팩트 텍스트 스트립, "(" ")" 및 하위 diceroll은 유지
       const parts = [];
       for (const child of node.childNodes) {
         if (child.nodeType === Node.TEXT_NODE) {
-          const text = child.textContent.replace(/\s*==\s*\$\d+/g, '');
+          const text = child.textContent.replace(/\s*==\s*\$\d+/g, '').replace(/\s+/g, ' ');
           if (text.trim()) parts.push(escHtml(text));
         } else {
           parts.push(nodeToHtml(child));
@@ -458,7 +460,7 @@ function extractTextSkippingChildren(el, skipClasses) {
   const parts = [];
   for (const node of el.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
-      parts.push(escHtml(node.textContent));
+      parts.push(escHtml(node.textContent.replace(/\s+/g, ' ')));
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const shouldSkip = skipClasses.some(cls => node.classList.contains(cls));
       if (!shouldSkip) {

@@ -70,9 +70,12 @@ async function downloadPreviewHtml({ elId, includeSadam, templateCss, bgColor, i
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${title}</title>
 <style>
-body{margin:0;background:${bgColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+*{box-sizing:border-box;}
+html,body{margin:0;width:100%;max-width:100%;overflow-x:hidden;}
+body{background:${bgColor};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 img{background-color:${imgBg}!important;max-width:100%!important}
 ${templateCss || ''}
 </style>
