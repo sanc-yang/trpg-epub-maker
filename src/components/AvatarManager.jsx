@@ -61,9 +61,10 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
   )]
 
   // 원본 로그 파싱 시 이미 정상적으로 잡힌 아이콘(화자별 첫 값) — 수동 업로드가 없으면 이걸 보여줌
+  // data: 로 내장된 것만 인정 — 외부/상대경로 URL은 미리보기·내보낸 파일에서 어차피 안 뜸(MessageRows 참고)
   const parsedIconBySpeaker = {}
   for (const m of messages) {
-    if (m.speaker && m.iconUrl && !parsedIconBySpeaker[m.speaker]) {
+    if (m.speaker && m.iconUrl?.startsWith('data:') && !parsedIconBySpeaker[m.speaker]) {
       parsedIconBySpeaker[m.speaker] = m.iconUrl
     }
   }

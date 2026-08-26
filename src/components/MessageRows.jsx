@@ -91,13 +91,15 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     }}>
       {!hideAvatar && (
         <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
-          {!isContinuation && msg.iconUrl && (
+          {/* data: 로 내장된 이미지만 그림 — 원본 URL(외부/상대경로)은 내보낸 파일에서
+              깨진 채로 뜨니 아예 비워둠. 화면에서 안 보이면 프로필 인장 관리에서 채워야 함. */}
+          {!isContinuation && msg.iconUrl?.startsWith('data:') && (
             <div style={{
               width: AVATAR_SIZE, height: AVATAR_SIZE,
               borderRadius: 4, overflow: 'hidden',
               background: 'transparent',
             }}>
-              <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+              <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
         </div>
@@ -185,8 +187,8 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvat
               background: '#2a2a3a',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              {msg.iconUrl
-                ? <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />
+              {msg.iconUrl?.startsWith('data:')
+                ? <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : msg.speaker === 'GM'
                   ? <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.85em' }}>GM</span>
                   : null
