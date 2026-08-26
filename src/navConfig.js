@@ -8,14 +8,16 @@ import { SHOW_PLAYGROUND } from './featureFlags'
 export const NAV_GROUPS = [
   {
     label: '제본',
-    items: [{ key: 'convert', label: '로그 변환', Icon: FileText }],
+    items: [
+      { key: 'convert', label: '로그 변환', Icon: FileText },
+      { key: 'logedit', label: '로그 편집', Icon: Pencil },
+    ],
   },
   {
     label: 'eBook 수정',
     items: [
       { key: 'bookinfo', label: '책 정보 수정', Icon: Tag },
       { key: 'cover', label: '표지 생성기', Icon: ImageIcon },
-      { key: 'logedit', label: '로그 편집', Icon: Pencil, soon: true },
     ],
   },
   {

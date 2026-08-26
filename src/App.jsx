@@ -13,12 +13,13 @@ import Lnb, { MobileTopBar } from './components/Lnb'
 import ConvertPage from './pages/ConvertPage'
 import BookInfoPage from './pages/BookInfoPage'
 import CoverPage from './pages/CoverPage'
+import LogEditPage from './pages/LogEditPage'
 import './App.css'
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'])
 const MIME_MAP = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' }
 
-const PAGES = { convert: ConvertPage, bookinfo: BookInfoPage, cover: CoverPage }
+const PAGES = { convert: ConvertPage, bookinfo: BookInfoPage, cover: CoverPage, logedit: LogEditPage }
 
 export default function App() {
   // ─── 테마 ────────────────────────────────────────────────────
@@ -109,12 +110,18 @@ export default function App() {
   const [showAvatarManager, setShowAvatarManager] = useState(false)
   // 인장 영역 제거 — Roll20/코코포리아 미리보기에서 프로필 이미지 칸 자체를 안 그림
   const [hideAvatarArea, setHideAvatarArea] = useState(false)
+  // 로그 편집(개별 메시지 숨김/구간 잘라내기) — 세션 한정, 저장하지 않음
+  const [hiddenMessageIds, setHiddenMessageIds] = useState(() => new Set())
+  const visibleMessages = useMemo(() => (
+    hiddenMessageIds.size ? messages.filter(m => !hiddenMessageIds.has(m.id)) : messages
+  ), [messages, hiddenMessageIds])
+
   const messagesWithAvatars = useMemo(() => {
-    if (!Object.keys(avatars).length) return messages
-    return messages.map(m => (m.speaker && avatars[m.speaker])
+    if (!Object.keys(avatars).length) return visibleMessages
+    return visibleMessages.map(m => (m.speaker && avatars[m.speaker])
       ? { ...m, iconUrl: avatars[m.speaker] }
       : m)
-  }, [messages, avatars])
+  }, [visibleMessages, avatars])
 
   // ─── 파싱 결과 → 상태 반영 ────────────────────────────────────
   const applyParsedResult = useCallback(({ messages: parsed, templateCss: css }, name, isRoll20 = true) => {
@@ -125,6 +132,7 @@ export default function App() {
     setMessages(parsed)
     setTemplateCss(css || '')
     setAvatars({})
+    setHiddenMessageIds(new Set())
     setUploadedEpub(null)
     setStats({
       total: parsed.length,
@@ -136,7 +144,7 @@ export default function App() {
       emote: isRoll20 ? parsed.filter(m => m.type === 'emote').length : 0,
       template: isRoll20 ? parsed.filter(m => m.type === 'template').length : 0,
     })
-  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setAvatars, setUploadedEpub, setStats])
+  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setAvatars, setHiddenMessageIds, setUploadedEpub, setStats])
 
   // ─── Roll20 ──────────────────────────────────────────────────
   const handleRoll20File = useCallback((file) => {
@@ -216,13 +224,13 @@ export default function App() {
     localStorage.setItem('trpg_source', s)
     setSource(s)
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
-    setSelectedMode(null); setIsParsing(false); setAvatars({})
+    setSelectedMode(null); setIsParsing(false); setAvatars({}); setHiddenMessageIds(new Set())
   }, [source, messages.length, fileName])
 
   // 드롭존의 X 버튼 — 업로드된 로그를 지우고 초기 화면(빈 드롭존)으로 되돌림
   const clearLog = useCallback(() => {
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
-    setSelectedMode(null); setIsParsing(false); setAvatars({})
+    setSelectedMode(null); setIsParsing(false); setAvatars({}); setHiddenMessageIds(new Set())
   }, [])
 
   // ─── 기존 .epub 업로드 (책 정보/표지만 다시 고치기) ────────────
@@ -288,6 +296,7 @@ export default function App() {
     isGenerating, handleDownload,
     showAvatarManager, setShowAvatarManager,
     hideAvatarArea, setHideAvatarArea,
+    hiddenMessageIds, setHiddenMessageIds,
   }
 
   const Page = PAGES[page] || ConvertPage
