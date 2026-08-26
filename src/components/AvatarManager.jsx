@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { styles } from '../theme'
 
 /**
  * 화자 한 명의 행. 파싱 원본 이미지는 상대경로/외부 URL이라 이 화면에서도 깨질 수 있어
@@ -56,6 +57,7 @@ function AvatarRow({ speaker, url, hasOverride, onUpload, onRemove, t }) {
  * 없는 화자만 채워 넣으면 됨.
  */
 export default function AvatarManager({ messages, avatars, setAvatars, onClose, source, t }) {
+  const S = styles(t)
   const speakers = [...new Set(
     messages.map(m => m.speaker).filter(s => s && s !== 'GM')
   )]
@@ -100,8 +102,8 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
           background: t.glass, border: `1px solid ${t.borderSub}`, borderRadius: 10, padding: '10px 12px',
         }}>
           {source === 'roll20'
-            ? <p style={{ margin: 0 }}>※ 롤20 로그에는 유저 인장이 포함되지 않습니다.<br />표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>
-            : <p style={{ margin: 0 }}>※ 코코포리아 로그에는 인장이 포함되지 않습니다.<br />표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>}
+            ? <p style={{ margin: 0 }}>※ 롤20 로그에는 유저 인장이 포함되지 않습니다.<br />인장을 표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>
+            : <p style={{ margin: 0 }}>※ 코코포리아 로그에는 인장이 포함되지 않습니다.<br />인장을 표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>}
         </div>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -127,9 +129,8 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
           })}
         </div>
 
-        <button type="button" onClick={onClose} style={{
-          padding: '8px 0', borderRadius: 8, border: `1px solid ${t.borderSub}`,
-          background: 'transparent', color: t.textSub, fontSize: '0.85em', cursor: 'pointer',
+        <button type="button" className="btn-primary" onClick={onClose} style={{
+          ...S.btnPrimary, width: '100%', padding: '8px 0', fontSize: '0.85em',
         }}>적용하기</button>
       </div>
     </div>
