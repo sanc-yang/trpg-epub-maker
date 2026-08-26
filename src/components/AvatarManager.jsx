@@ -100,8 +100,8 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
           background: t.glass, border: `1px solid ${t.borderSub}`, borderRadius: 10, padding: '10px 12px',
         }}>
           {source === 'roll20'
-            ? <p style={{ margin: 0 }}>※ Roll20은 로그를 저장할 때 일부 프로필 이미지가 통째로 누락되는 경우가 있어요. 아래 목록에서 안 뜨는 화자만 직접 올려주세요.</p>
-            : <p style={{ margin: 0 }}>※ 코코포리아 로그에는 원래 프로필 이미지가 포함되지 않아요. 표시하고 싶은 화자는 직접 올려주세요.</p>}
+            ? <p style={{ margin: 0 }}>※ 롤20 로그에는 유저 인장이 포함되지 않습니다. 표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>
+            : <p style={{ margin: 0 }}>※ 코코포리아 로그에는 인장이 포함되지 않습니다. 표시하고 싶은 화자는 직접 업로드 할 수 있습니다.</p>}
         </div>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
