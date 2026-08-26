@@ -1,10 +1,72 @@
+import { useState } from 'react'
 import { X } from 'lucide-react'
 
-/** 코코포리아엔 아바타 이미지가 없고 Roll20은 원본 이미지가 외부 URL이라 변환물에서 깨져서, 화자별로 직접 업로드해 뷰/EPUB에 반영 */
+/**
+ * 화자 한 명의 행. 파싱 원본 이미지는 상대경로/외부 URL이라 이 화면에서도 깨질 수 있어
+ * 실제 로드 성공 여부(loaded)를 썸네일뿐 아니라 "업로드"/"변경" 라벨에도 함께 반영함
+ * — 문자열 URL만 있고 실제로는 안 뜨는 경우 "변경"이라고 잘못 표시되는 걸 방지.
+ */
+function AvatarRow({ speaker, url, hasOverride, onUpload, onRemove, t }) {
+  const [loaded, setLoaded] = useState(!!url)
+  const showImg = url && loaded
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '10px 12px', borderRadius: 10,
+      border: `1px solid ${t.borderSub}`, background: t.glass,
+    }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: 8, flexShrink: 0,
+        background: '#2a2a3a', overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {showImg
+          ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setLoaded(false)} />
+          : <span style={{ color: '#666', fontSize: '0.7em' }}>없음</span>}
+      </div>
+
+      <span style={{ flex: 1, fontSize: '0.9em', color: t.text, fontWeight: 500 }}>{speaker}</span>
+
+      <div style={{ display: 'flex', gap: 6 }}>
+        <label style={{
+          padding: '5px 12px', borderRadius: 7, fontSize: '0.8em', fontWeight: 600,
+          background: t.accent, color: t.accentFg, cursor: 'pointer', whiteSpace: 'nowrap',
+        }}>
+          {showImg ? '변경' : '업로드'}
+          <input type="file" accept="image/*" style={{ display: 'none' }}
+            onChange={e => onUpload(e.target.files[0])} />
+        </label>
+        {hasOverride && (
+          <button type="button" onClick={onRemove} style={{
+            padding: '5px 10px', borderRadius: 7, fontSize: '0.8em',
+            border: `1px solid ${t.borderSub}`, background: 'transparent',
+            color: t.textSub, cursor: 'pointer',
+          }}>삭제</button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 코코포리아엔 아바타 이미지가 원래 없고, Roll20은 로그 저장 시 일부 이미지가
+ * 로컬로 안 남아(예: 본인 프로필 이미지) 변환물에서 깨지는 경우가 있어, 화자별로
+ * 직접 업로드해 뷰/EPUB에 반영. 파싱 단계에서 이미 잘 잡힌 이미지는 그대로 보여주고
+ * 없는 화자만 채워 넣으면 됨.
+ */
 export default function AvatarManager({ messages, avatars, setAvatars, onClose, t }) {
   const speakers = [...new Set(
     messages.map(m => m.speaker).filter(s => s && s !== 'GM')
   )]
+
+  // 원본 로그 파싱 시 이미 정상적으로 잡힌 아이콘(화자별 첫 값) — 수동 업로드가 없으면 이걸 보여줌
+  const parsedIconBySpeaker = {}
+  for (const m of messages) {
+    if (m.speaker && m.iconUrl && !parsedIconBySpeaker[m.speaker]) {
+      parsedIconBySpeaker[m.speaker] = m.iconUrl
+    }
+  }
 
   const handleFile = (speaker, file) => {
     if (!file) return
@@ -39,43 +101,18 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
             </div>
           )}
           {speakers.map(speaker => {
-            const url = avatars[speaker]
+            const override = avatars[speaker]
+            const url = override || parsedIconBySpeaker[speaker]
             return (
-              <div key={speaker} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '10px 12px', borderRadius: 10,
-                border: `1px solid ${t.borderSub}`, background: t.glass,
-              }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 8, flexShrink: 0,
-                  background: '#2a2a3a', overflow: 'hidden',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {url
-                    ? <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ color: '#666', fontSize: '0.7em' }}>없음</span>}
-                </div>
-
-                <span style={{ flex: 1, fontSize: '0.9em', color: t.text, fontWeight: 500 }}>{speaker}</span>
-
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <label style={{
-                    padding: '5px 12px', borderRadius: 7, fontSize: '0.8em', fontWeight: 600,
-                    background: t.accent, color: t.accentFg, cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}>
-                    {url ? '변경' : '업로드'}
-                    <input type="file" accept="image/*" style={{ display: 'none' }}
-                      onChange={e => handleFile(speaker, e.target.files[0])} />
-                  </label>
-                  {url && (
-                    <button type="button" onClick={() => setAvatars(prev => { const n = { ...prev }; delete n[speaker]; return n })} style={{
-                      padding: '5px 10px', borderRadius: 7, fontSize: '0.8em',
-                      border: `1px solid ${t.borderSub}`, background: 'transparent',
-                      color: t.textSub, cursor: 'pointer',
-                    }}>삭제</button>
-                  )}
-                </div>
-              </div>
+              <AvatarRow
+                key={`${speaker}:${url || ''}`}
+                speaker={speaker}
+                url={url}
+                hasOverride={!!override}
+                onUpload={file => handleFile(speaker, file)}
+                onRemove={() => setAvatars(prev => { const n = { ...prev }; delete n[speaker]; return n })}
+                t={t}
+              />
             )
           })}
         </div>
