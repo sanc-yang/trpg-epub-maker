@@ -16,6 +16,7 @@ export function makeTheme(isDark) {
     inputBg: 'rgba(255,255,255,0.09)', inputBorder: 'rgba(255,255,255,0.18)',
     shadow: '0 4px 28px rgba(0,0,0,0.35)',
     hover: 'rgba(255,255,255,0.08)',
+    btnHover: 'rgba(255,255,255,0.16)', // 버튼 hover 전용 — surface(0.06)와 뚜렷이 구분되게 더 진하게
     drawerBg: 'rgba(20,18,31,0.94)',
   } : {
     isDark: false,
@@ -29,6 +30,7 @@ export function makeTheme(isDark) {
     inputBg: 'rgba(255,255,255,0.50)', inputBorder: 'rgba(180,180,210,0.55)',
     shadow: '0 4px 28px rgba(100,80,160,0.08)',
     hover: 'rgba(255,255,255,0.50)',
+    btnHover: 'rgba(28,28,30,0.08)', // 버튼 hover 전용 — surface가 흰색 계열이라 살짝 어둡게 눌러서 구분
     drawerBg: 'rgba(255,255,255,0.92)', // 모바일 드로어는 뒤 콘텐츠를 가려야 해서 투명도 예외
   }
 }
@@ -63,7 +65,7 @@ export const styles = (t) => ({
     background: t.surface, color: t.text, border: `1px solid ${t.border}`,
     borderRadius: 8, padding: '7px 16px', fontSize: '0.82em', fontWeight: 500,
     cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s, border-color 0.15s',
-    '--btn-hover-bg': t.hover, '--btn-hover-border': t.text,
+    '--btn-hover-bg': t.btnHover, '--btn-hover-border': t.text,
   },
   sectionLabel: {
     fontSize: '0.7em', fontWeight: 700, letterSpacing: '0.08em',
