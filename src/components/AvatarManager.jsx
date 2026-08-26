@@ -55,7 +55,7 @@ function AvatarRow({ speaker, url, hasOverride, onUpload, onRemove, t }) {
  * 직접 업로드해 뷰/EPUB에 반영. 파싱 단계에서 이미 잘 잡힌 이미지는 그대로 보여주고
  * 없는 화자만 채워 넣으면 됨.
  */
-export default function AvatarManager({ messages, avatars, setAvatars, onClose, t }) {
+export default function AvatarManager({ messages, avatars, setAvatars, onClose, source, t }) {
   const speakers = [...new Set(
     messages.map(m => m.speaker).filter(s => s && s !== 'GM')
   )]
@@ -93,6 +93,15 @@ export default function AvatarManager({ messages, avatars, setAvatars, onClose, 
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textSub, padding: 4 }}>
             <X size={18} />
           </button>
+        </div>
+
+        <div style={{
+          fontSize: '0.78em', lineHeight: 1.6, color: t.textSub,
+          background: t.glass, border: `1px solid ${t.borderSub}`, borderRadius: 10, padding: '10px 12px',
+        }}>
+          {source === 'roll20'
+            ? <p style={{ margin: 0 }}>※ Roll20은 로그를 저장할 때 일부 프로필 이미지가 통째로 누락되는 경우가 있어요. 아래 목록에서 안 뜨는 화자만 직접 올려주세요.</p>
+            : <p style={{ margin: 0 }}>※ 코코포리아 로그에는 원래 프로필 이미지가 포함되지 않아요. 표시하고 싶은 화자는 직접 올려주세요.</p>}
         </div>
 
         <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>

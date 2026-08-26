@@ -347,6 +347,7 @@ export default function App() {
           avatars={avatars}
           setAvatars={setAvatars}
           onClose={() => setShowAvatarManager(false)}
+          source={source}
           t={t}
         />
       )}
