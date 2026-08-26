@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
 
-/** 코코포리아 로그에는 아바타 이미지가 없어 화자별로 직접 업로드해 뷰/EPUB에 반영 */
-export default function CcfoliaAvatarManager({ messages, avatars, setAvatars, onClose, t }) {
+/** 코코포리아엔 아바타 이미지가 없고 Roll20은 원본 이미지가 외부 URL이라 변환물에서 깨져서, 화자별로 직접 업로드해 뷰/EPUB에 반영 */
+export default function AvatarManager({ messages, avatars, setAvatars, onClose, t }) {
   const speakers = [...new Set(
     messages.map(m => m.speaker).filter(s => s && s !== 'GM')
   )]

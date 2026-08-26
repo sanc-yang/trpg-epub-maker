@@ -8,7 +8,7 @@ import { makeTheme, styles } from './theme'
 import { useMediaQuery } from './hooks'
 import { SHOW_THEME_TOGGLE } from './featureFlags'
 import Toast from './components/Toast'
-import CcfoliaAvatarManager from './components/CcfoliaAvatarManager'
+import AvatarManager from './components/AvatarManager'
 import Lnb, { MobileTopBar } from './components/Lnb'
 import ConvertPage from './pages/ConvertPage'
 import BookInfoPage from './pages/BookInfoPage'
@@ -103,17 +103,18 @@ export default function App() {
   const [isFetching, setIsFetching] = useState(false)
   const [fetchCount, setFetchCount] = useState(0)
 
-  // 코코포리아 프로필 인장(화자별 아바타) — 세션 한정, 저장하지 않음
-  const [ccfoliaAvatars, setCcfoliaAvatars] = useState({}) // { speakerName: base64 }
+  // 화자별 프로필 인장(직접 업로드) — 세션 한정, 저장하지 않음
+  // 코코포리아는 원래 아바타가 없고, Roll20은 원본이 외부 URL이라 변환물에서 깨지기 때문에 둘 다 필요
+  const [avatars, setAvatars] = useState({}) // { speakerName: base64 }
   const [showAvatarManager, setShowAvatarManager] = useState(false)
   // 인장 영역 제거 — Roll20/코코포리아 미리보기에서 프로필 이미지 칸 자체를 안 그림
   const [hideAvatarArea, setHideAvatarArea] = useState(false)
   const messagesWithAvatars = useMemo(() => {
-    if (!Object.keys(ccfoliaAvatars).length) return messages
-    return messages.map(m => (m.speaker && ccfoliaAvatars[m.speaker])
-      ? { ...m, iconUrl: ccfoliaAvatars[m.speaker] }
+    if (!Object.keys(avatars).length) return messages
+    return messages.map(m => (m.speaker && avatars[m.speaker])
+      ? { ...m, iconUrl: avatars[m.speaker] }
       : m)
-  }, [messages, ccfoliaAvatars])
+  }, [messages, avatars])
 
   // ─── 파싱 결과 → 상태 반영 ────────────────────────────────────
   const applyParsedResult = useCallback(({ messages: parsed, templateCss: css }, name, isRoll20 = true) => {
@@ -123,7 +124,7 @@ export default function App() {
     setTitle(name.replace(/\.(html|zip)$/i, ''))
     setMessages(parsed)
     setTemplateCss(css || '')
-    setCcfoliaAvatars({})
+    setAvatars({})
     setUploadedEpub(null)
     setStats({
       total: parsed.length,
@@ -135,7 +136,7 @@ export default function App() {
       emote: isRoll20 ? parsed.filter(m => m.type === 'emote').length : 0,
       template: isRoll20 ? parsed.filter(m => m.type === 'template').length : 0,
     })
-  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setCcfoliaAvatars, setUploadedEpub, setStats])
+  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setAvatars, setUploadedEpub, setStats])
 
   // ─── Roll20 ──────────────────────────────────────────────────
   const handleRoll20File = useCallback((file) => {
@@ -215,13 +216,13 @@ export default function App() {
     localStorage.setItem('trpg_source', s)
     setSource(s)
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
-    setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
+    setSelectedMode(null); setIsParsing(false); setAvatars({})
   }, [source, messages.length, fileName])
 
   // 드롭존의 X 버튼 — 업로드된 로그를 지우고 초기 화면(빈 드롭존)으로 되돌림
   const clearLog = useCallback(() => {
     setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
-    setSelectedMode(null); setIsParsing(false); setCcfoliaAvatars({})
+    setSelectedMode(null); setIsParsing(false); setAvatars({})
   }, [])
 
   // ─── 기존 .epub 업로드 (책 정보/표지만 다시 고치기) ────────────
@@ -332,10 +333,10 @@ export default function App() {
       </div>
 
       {showAvatarManager && (
-        <CcfoliaAvatarManager
+        <AvatarManager
           messages={messages}
-          avatars={ccfoliaAvatars}
-          setAvatars={setCcfoliaAvatars}
+          avatars={avatars}
+          setAvatars={setAvatars}
           onClose={() => setShowAvatarManager(false)}
           t={t}
         />

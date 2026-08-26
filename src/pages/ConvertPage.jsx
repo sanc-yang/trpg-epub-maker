@@ -356,19 +356,17 @@ export default function ConvertPage({ app }) {
           <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
-          {source === 'ccfolia' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-              <button type="button" onClick={() => setShowAvatarManager(true)} style={{
-                ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
-              }}>
-                프로필 인장 관리
-              </button>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82em', color: t.textSub, cursor: 'pointer', userSelect: 'none' }}>
-                <input type="checkbox" checked={hideAvatarArea} onChange={e => setHideAvatarArea(e.target.checked)} style={{ accentColor: t.accent, cursor: 'pointer' }} />
-                인장 영역 제거
-              </label>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => setShowAvatarManager(true)} style={{
+              ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+            }}>
+              프로필 인장 관리
+            </button>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82em', color: t.textSub, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={hideAvatarArea} onChange={e => setHideAvatarArea(e.target.checked)} style={{ accentColor: t.accent, cursor: 'pointer' }} />
+              인장 영역 제거
+            </label>
+          </div>
           <div className="mode-grid">
             {[
               ['epub', BookOpen, 'eBook 스타일'],
