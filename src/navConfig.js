@@ -10,7 +10,7 @@ export const NAV_GROUPS = [
     label: '제본',
     items: [
       { key: 'convert', label: '로그 변환', Icon: FileText },
-      { key: 'logedit', label: '로그 편집', Icon: Pencil },
+      { key: 'logedit', label: '로그 편집', Icon: Pencil, soon: true },
     ],
   },
   {
