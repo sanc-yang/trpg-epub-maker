@@ -36,7 +36,7 @@ export default function EmptyState({ t, onGoConvert, onUploadEpub, title = '먼�
         </>
       )}
 
-      <button type="button" onClick={onGoConvert} style={{ ...S.btnPrimary, marginTop: onUploadEpub ? 14 : 18, fontSize: '0.82em', padding: '8px 18px' }}>
+      <button type="button" className="btn-primary" onClick={onGoConvert} style={{ ...S.btnPrimary, marginTop: onUploadEpub ? 14 : 18, fontSize: '0.82em', padding: '8px 18px' }}>
         로그 변환으로 이동
       </button>
     </div>

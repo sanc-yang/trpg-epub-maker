@@ -318,7 +318,7 @@ export default function App() {
           <div style={{ maxWidth: 820, margin: '0 auto', width: '100%' }}>
             {SHOW_THEME_TOGGLE && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-                <button type="button" onClick={() => setIsDark(d => !d)} style={{
+                <button type="button" className="btn-secondary" onClick={() => setIsDark(d => !d)} style={{
                   ...S.btnSecondary, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 20,
                 }}>
                   {isDark ? <><Sun size={14} /> 라이트</> : <><Moon size={14} /> 다크</>}

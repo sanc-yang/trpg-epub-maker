@@ -1,7 +1,7 @@
 export default function ToggleSwitch({ checked, onChange, label, labelColor, offColor }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: '0.84em', color: labelColor || '#555', whiteSpace: 'nowrap' }}>
-      <div onClick={() => onChange(!checked)} style={{
+    <label onClick={() => onChange(!checked)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontSize: '0.84em', color: labelColor || '#555', whiteSpace: 'nowrap' }}>
+      <div style={{
         width: 36, height: 20, borderRadius: 10,
         background: checked ? '#3b82f6' : (offColor || '#ccc'),
         position: 'relative', transition: 'background 0.2s', flexShrink: 0,

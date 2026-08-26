@@ -272,9 +272,9 @@ export default function ConvertPage({ app }) {
                   style={{ ...S.input, flex: 1, minWidth: 200, borderColor: roomInvalidMsg ? '#ef4444' : t.inputBorder }}
                   disabled={isFetching}
                 />
-                <button type="button" onClick={handleFetchCcfolia} disabled={isFetching || !roomValid} style={{
-                  ...S.btnPrimary, opacity: (isFetching || !roomValid) ? 0.5 : 1,
-                  cursor: (isFetching || !roomValid) ? 'not-allowed' : 'pointer',
+                <button type="button" className="btn-primary" onClick={handleFetchCcfolia} disabled={isFetching || !roomValid} style={{
+                  ...S.btnPrimary,
+                  ...((isFetching || !roomValid) && { opacity: 0.5, cursor: 'not-allowed' }),
                   whiteSpace: 'nowrap',
                 }}>
                   {isFetching ? `수집 중... (${fetchCount}건)` : '가져오기'}
@@ -357,7 +357,7 @@ export default function ConvertPage({ app }) {
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setShowAvatarManager(true)} style={{
+            <button type="button" className="btn-secondary" onClick={() => setShowAvatarManager(true)} style={{
               ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
             }}>
               프로필 인장 관리
@@ -421,7 +421,7 @@ export default function ConvertPage({ app }) {
               <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative' }}>
-                  <button type="button" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
+                  <button type="button" className="btn-secondary" onClick={() => setCopyPopover(v => v === 'epub' ? null : 'epub')} style={{
                     ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
                     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                   }}>
@@ -437,9 +437,9 @@ export default function ConvertPage({ app }) {
                     />
                   )}
                 </div>
-                <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
+                <button type="button" className="btn-primary" onClick={handleDownload} disabled={isGenerating} style={{
                   ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
-                  opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
+                  ...(isGenerating && { opacity: 0.5, cursor: 'not-allowed' }),
                   display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                 }}>
                   {isGenerating ? '생성 중...' : <><Download size={13} />epub 다운로드</>}
@@ -471,7 +471,7 @@ export default function ConvertPage({ app }) {
                 <ToggleSwitch checked={includeSadam} onChange={setIncludeSadam} label="사담 포함" labelColor={t.textSub} offColor={t.borderSub} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative' }}>
-                    <button type="button" onClick={() => setCopyPopover(v => v === selectedMode ? null : selectedMode)} style={{
+                    <button type="button" className="btn-secondary" onClick={() => setCopyPopover(v => v === selectedMode ? null : selectedMode)} style={{
                       ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
                       display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                     }}>
@@ -490,9 +490,9 @@ export default function ConvertPage({ app }) {
                       )
                     })()}
                   </div>
-                  <button type="button" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
+                  <button type="button" className="btn-primary" onClick={() => handleDownloadPreviewHtml(selectedMode)} disabled={!!downloadingHtml} style={{
                     ...S.btnPrimary, padding: '5px 14px', fontSize: '0.82em',
-                    opacity: downloadingHtml ? 0.5 : 1, cursor: downloadingHtml ? 'not-allowed' : 'pointer',
+                    ...(downloadingHtml && { opacity: 0.5, cursor: 'not-allowed' }),
                     display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
                   }}>
                     {downloadingHtml === selectedMode

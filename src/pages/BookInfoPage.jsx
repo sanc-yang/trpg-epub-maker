@@ -49,9 +49,9 @@ export default function BookInfoPage({ app }) {
       />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-        <button type="button" onClick={handleDownload} disabled={isGenerating} style={{
+        <button type="button" className="btn-primary" onClick={handleDownload} disabled={isGenerating} style={{
           ...S.btnPrimary, padding: '7px 16px', fontSize: '0.84em',
-          opacity: isGenerating ? 0.5 : 1, cursor: isGenerating ? 'not-allowed' : 'pointer',
+          ...(isGenerating && { opacity: 0.5, cursor: 'not-allowed' }),
           display: 'inline-flex', alignItems: 'center', gap: 6,
         }}>
           {isGenerating ? '생성 중...' : <><Download size={14} />수정한 epub 다운로드</>}

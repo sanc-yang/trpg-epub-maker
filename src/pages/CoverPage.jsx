@@ -353,17 +353,17 @@ export default function CoverPage({ app }) {
 
             <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 4 }}>
               {canApply && (
-                <button type="button" onClick={useAsCover} style={{
+                <button type="button" className="btn-primary" onClick={useAsCover} style={{
                   ...S.btnPrimary, fontSize: '0.84em', padding: '9px 18px',
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}><Check size={14} />이 표지로 적용하기</button>
               )}
-              <button type="button" onClick={download} style={{
+              <button type="button" className={canApply ? 'btn-secondary' : 'btn-primary'} onClick={download} style={{
                 ...(canApply ? S.btnSecondary : S.btnPrimary),
                 fontSize: '0.84em', padding: '9px 16px',
                 display: 'inline-flex', alignItems: 'center', gap: 6,
               }}><Download size={14} />PNG 내려받기</button>
-              <button type="button" onClick={() => patch({ ox: 0, oy: 0, zoom: 100 })} style={{
+              <button type="button" className="btn-secondary" onClick={() => patch({ ox: 0, oy: 0, zoom: 100 })} style={{
                 ...S.btnSecondary, fontSize: '0.84em', padding: '9px 16px',
               }}>위치 초기화</button>
             </div>

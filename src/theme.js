@@ -52,6 +52,8 @@ export const styles = (t) => ({
     color: t.textSub, marginBottom: 6, display: 'block', paddingLeft: 8,
   },
   field: { marginBottom: 14 },
+  // hover 색은 --btn-hover-* 커스텀 프로퍼티로 넘기고 실제 :hover는 App.css의
+  // .btn-primary/.btn-secondary 클래스가 처리 (버튼 쓰는 곳마다 className도 같이 붙여야 함)
   btnPrimary: {
     background: t.accent, color: t.accentFg, border: 'none',
     borderRadius: 8, padding: '10px 22px', fontSize: '0.9em', fontWeight: 600,
@@ -60,7 +62,8 @@ export const styles = (t) => ({
   btnSecondary: {
     background: t.surface, color: t.text, border: `1px solid ${t.border}`,
     borderRadius: 8, padding: '7px 16px', fontSize: '0.82em', fontWeight: 500,
-    cursor: 'pointer', fontFamily: 'inherit',
+    cursor: 'pointer', fontFamily: 'inherit', transition: 'background 0.15s, border-color 0.15s',
+    '--btn-hover-bg': t.hover, '--btn-hover-border': t.text,
   },
   sectionLabel: {
     fontSize: '0.7em', fontWeight: 700, letterSpacing: '0.08em',
