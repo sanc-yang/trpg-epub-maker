@@ -350,34 +350,34 @@ export default function CoverPage({ app }) {
                   style={{ width: '100%', height: 34, padding: 2, borderRadius: 8, border: `1px solid ${t.inputBorder}`, background: t.inputBg }} />
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 4, justifyContent: 'flex-end' }}>
-              <button type="button" className="btn-secondary" onClick={() => patch({ ox: 0, oy: 0, zoom: 100 })} style={{
-                ...S.btnSecondary, fontSize: '0.84em', padding: '9px 16px',
-              }}>위치 초기화</button>
-              <button type="button" className={canApply ? 'btn-secondary' : 'btn-primary'} onClick={download} style={{
-                ...(canApply ? S.btnSecondary : S.btnPrimary),
-                fontSize: '0.84em', padding: '9px 16px',
+          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 14, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-secondary" onClick={() => patch({ ox: 0, oy: 0, zoom: 100 })} style={{
+              ...S.btnSecondary, fontSize: '0.84em', padding: '9px 16px',
+            }}>위치 초기화</button>
+            <button type="button" className={canApply ? 'btn-secondary' : 'btn-primary'} onClick={download} style={{
+              ...(canApply ? S.btnSecondary : S.btnPrimary),
+              fontSize: '0.84em', padding: '9px 16px',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}><Download size={14} />PNG 내려받기</button>
+            {canApply && (
+              <button type="button" className="btn-primary" onClick={useAsCover} style={{
+                ...S.btnPrimary, fontSize: '0.84em', padding: '9px 18px',
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-              }}><Download size={14} />PNG 내려받기</button>
-              {canApply && (
-                <button type="button" className="btn-primary" onClick={useAsCover} style={{
-                  ...S.btnPrimary, fontSize: '0.84em', padding: '9px 18px',
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                }}><Check size={14} />이 표지로 적용하기</button>
-              )}
-            </div>
-
-            {mode === 'export' && (
-              <p style={{ fontSize: '0.74em', color: t.textMuted, margin: '12px 0 0', lineHeight: 1.7 }}>
-                표지만 만드는 중이라 PNG 로만 내려받습니다.
-                eBook 표지로 쓰려면 <button type="button" onClick={() => setMode(null)} style={{
-                  background: 'none', border: 'none', padding: 0, color: t.textSub,
-                  textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit',
-                }}>기존 eBook 표지 수정하기</button> 를 골라주세요.
-              </p>
+              }}><Check size={14} />이 표지로 적용하기</button>
             )}
           </div>
+
+          {mode === 'export' && (
+            <p style={{ fontSize: '0.74em', color: t.textMuted, margin: '10px 0 0', lineHeight: 1.7, textAlign: 'right' }}>
+              표지만 만드는 중이라 PNG 로만 내려받습니다.
+              eBook 표지로 쓰려면 <button type="button" onClick={() => setMode(null)} style={{
+                background: 'none', border: 'none', padding: 0, color: t.textSub,
+                textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit',
+              }}>기존 eBook 표지 수정하기</button> 를 골라주세요.
+            </p>
+          )}
         </div>
 
         {stage}
