@@ -3,6 +3,7 @@
   "homepage": "https://sanc-yang.github.io/trpg-epub-maker",
   "private": true,
   "version": "0.0.0",
+  "license": "CC-BY-NC-SA-4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

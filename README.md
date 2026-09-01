@@ -186,6 +186,8 @@ public/                     favicon, 링크 공유용 OG 이미지
 
 ## 라이선스
 
-미지정 (추후 결정 예정).
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) — 저작자표시, 비영리,
+동일조건변경허락. 출처를 밝히면 자유롭게 쓰고 고칠 수 있지만 상업적 이용은 안 되고, 2차 저작물도
+같은 라이선스로 공개해야 합니다. 자세한 내용은 [LICENSE](./LICENSE) 참고.
 
 made by **pong**
