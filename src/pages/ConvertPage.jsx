@@ -210,7 +210,7 @@ export default function ConvertPage({ app }) {
         previewRows, Row: mode === 'roll20' ? MessageRow : CcfoliaMessageRow,
         hideAvatar: hideAvatarArea, templateCss,
         bgColor: PREVIEW_BG[mode], mode,
-        title: `${title || fileName.replace(/\.(html|zip)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
+        title: `${title || fileName.replace(/\.(html|zip|mhtml|mht)$/i, '')} - ${mode === 'roll20' ? 'Roll20' : '코코포리아'}`,
       })
       toast('HTML 다운로드 완료!')
     } finally {
@@ -296,7 +296,7 @@ export default function ConvertPage({ app }) {
       {(source === 'roll20' || ccfoliaMode === 'html') && (
         <DropZone
           t={t} onFile={handleFileDrop} inputId="fileInput"
-          accept={source === 'roll20' ? '.zip' : '.html'}
+          accept={source === 'roll20' ? '.zip,.mhtml,.mht' : '.html'}
           style={{ marginBottom: 24 }}
           onClear={fileName ? clearLog : undefined}
           icon={fileName
@@ -305,7 +305,7 @@ export default function ConvertPage({ app }) {
         >
           {fileName
             ? <span style={{ color: t.text, fontWeight: 600, fontSize: '1.02em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Book size={15} /> {fileName}</span>
-            : (source === 'roll20' ? 'Roll20 ZIP 파일 드롭 또는 클릭' : '코코포리아 HTML 파일 드롭 또는 클릭')}
+            : (source === 'roll20' ? 'Roll20 로그 MHTML 파일 드롭 또는 클릭' : '코코포리아 로그 HTML 파일 드롭 또는 클릭')}
         </DropZone>
       )}
 
@@ -356,17 +356,19 @@ export default function ConvertPage({ app }) {
           <p style={{ fontSize: '0.85em', color: t.textSub, margin: '0 0 14px' }}>
             로그 변환 준비 완료. 어떤 형식으로 작업을 원하세요?
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
-            <button type="button" className="btn-secondary" onClick={() => setShowAvatarManager(true)} style={{
-              ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
-            }}>
-              프로필 인장 관리
-            </button>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82em', color: t.textSub, cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={hideAvatarArea} onChange={e => setHideAvatarArea(e.target.checked)} style={{ accentColor: t.accent, cursor: 'pointer' }} />
-              인장 영역 제거
-            </label>
-          </div>
+          {(selectedMode === 'roll20' || selectedMode === 'ccfolia') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary" onClick={() => setShowAvatarManager(true)} style={{
+                ...S.btnSecondary, padding: '5px 14px', fontSize: '0.82em',
+              }}>
+                프로필 인장 관리
+              </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82em', color: t.textSub, cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={hideAvatarArea} onChange={e => setHideAvatarArea(e.target.checked)} style={{ accentColor: t.accent, cursor: 'pointer' }} />
+                인장 영역 제거
+              </label>
+            </div>
+          )}
           <div className="mode-grid">
             {[
               ['epub', BookOpen, 'eBook 스타일'],

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
+import { mhtmlToHtml } from './utils/parseMhtml'
 import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
 import { generateEpub, parseEpubMeta, patchEpubCover, DEFAULT_BODY_FONT } from './utils/generateEpub'
 import { makeTheme, styles } from './theme'
@@ -128,7 +129,7 @@ export default function App() {
     setIsParsing(false)
     setSelectedMode(null)
     setFileName(name)
-    setTitle(name.replace(/\.(html|zip)$/i, ''))
+    setTitle(name.replace(/\.(html|zip|mhtml|mht)$/i, ''))
     setMessages(parsed)
     setTemplateCss(css || '')
     setAvatars({})
@@ -173,6 +174,19 @@ export default function App() {
             })
         )
         applyParsedResult(await parseRoll20Html(htmlText, localImageMap), htmlName, true)
+      })
+      return
+    }
+
+    if (/\.(mhtml|mht)$/i.test(file.name)) {
+      file.arrayBuffer().then(async (buffer) => {
+        try {
+          const { html: htmlText, imageMap } = mhtmlToHtml(buffer)
+          applyParsedResult(await parseRoll20Html(htmlText, imageMap), file.name, true)
+        } catch (err) {
+          toast(`MHTML 파싱 실패: ${err.message}`, 'error')
+          setIsParsing(false)
+        }
       })
       return
     }
@@ -264,7 +278,7 @@ export default function App() {
           })
       const downloadName = uploadedEpub
         ? (epubTitle || uploadedEpub.fileName.replace(/\.epub$/i, ''))
-        : (title || fileName.replace(/\.(html|zip)$/i, ''))
+        : (title || fileName.replace(/\.(html|zip|mhtml|mht)$/i, ''))
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url

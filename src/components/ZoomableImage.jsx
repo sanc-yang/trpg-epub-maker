@@ -1,21 +1,40 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { ZoomIn, X } from 'lucide-react'
 
-/** 클릭하면 모달로 크게 보여주는 이미지 */
+/** 클릭하면 모달로 크게 보여주는 이미지. hover 시 확대 가능 안내 오버레이 표시 */
 export default function ZoomableImage({ src, alt, t, style }) {
+  const [hover, setHover] = useState(false)
   const [open, setOpen] = useState(false)
 
   return (
     <>
       <div
         onClick={() => setOpen(true)}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         style={{
-          width: '100%', borderRadius: 12, overflow: 'hidden',
+          position: 'relative', width: '100%', borderRadius: 12, overflow: 'hidden',
           cursor: 'pointer', border: `1px solid ${t.glassBorder}`, boxShadow: t.shadow,
           ...style,
         }}
       >
         <img src={src} alt={alt} style={{ display: 'block', width: '100%' }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: hover ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0)',
+          transition: 'background 0.15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          {hover && (
+            <span style={{
+              background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '0.85em', fontWeight: 600,
+              padding: '8px 16px', borderRadius: 20, display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+              <ZoomIn size={15} />크게 보기
+            </span>
+          )}
+        </div>
       </div>
 
       {open && (

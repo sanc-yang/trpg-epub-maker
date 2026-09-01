@@ -62,16 +62,31 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     </div>
   )
 
-  // 사담: 아바타 컬럼 없이 들여쓰기만
+  // 사담: 일반 대사와 동일하게 아바타 컬럼 포함
   if (isSadam) {
     return (
       <div data-sadam="true" style={{
-        padding: `${isContinuation ? 2 : 6}px 10px ${isContinuation ? 2 : 6}px ${avatarGutter}px`,
+        display: 'flex',
+        gap: 10,
+        padding: `${isContinuation ? 2 : 6}px 10px ${isLastInGroup ? 6 : 2}px`,
         background: '#f5f5f5',
         color: '#666',
         fontSize: '0.9em',
         borderBottom: isLastInGroup ? R20_BORDER : 'none',
       }}>
+        {!hideAvatar && (
+          <div style={{ width: AVATAR_SIZE, flexShrink: 0 }}>
+            {!isContinuation && msg.iconUrl?.startsWith('data:') && (
+              <div style={{
+                width: AVATAR_SIZE, height: AVATAR_SIZE,
+                borderRadius: 4, overflow: 'hidden',
+                background: 'transparent',
+              }}>
+                <img src={msg.iconUrl} alt="" data-avatar="true" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+            )}
+          </div>
+        )}
         {contentBlock}
       </div>
     )
@@ -85,7 +100,7 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
     <div data-dialogue={isDialogue ? 'true' : undefined} style={{
       display: 'flex',
       gap: 10,
-      padding: isContinuation ? '2px 10px' : '6px 10px',
+      padding: `${isContinuation ? 2 : 6}px 10px ${isLastInGroup ? 6 : 2}px`,
       background: bg,
       borderBottom: isLastInGroup ? R20_BORDER : 'none',
     }}>
@@ -111,6 +126,15 @@ export function MessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
 
 // ─── 코코포리아 스타일 메시지 행 ─────────────────────────────────
 const CC_BORDER = '1px solid rgba(255,255,255,0.03)'
+
+// [메인] 탭 메시지엔 뱃지 없음. 그 외 탭은 전부 뱃지로 표시 —
+// [잡담/other]는 기존 그대로 "사담", [정보/info]는 "정보", 그 외 커스텀 탭명은 탭 이름 그대로.
+function ccfoliaChannelBadge(channel) {
+  if (!channel || channel === '메인' || channel === 'main') return null
+  if (channel === '잡담' || channel === 'other') return '사담'
+  if (channel === '정보' || channel === 'info') return '정보'
+  return channel
+}
 
 export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvatar }) {
   const AVATAR_W = 44
@@ -172,7 +196,7 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvat
     <div data-sadam={msg.isSadam ? 'true' : undefined} style={{
       display: 'flex',
       gap: 10,
-      padding: isContinuation ? '2px 14px' : '10px 14px 6px',
+      padding: `${isContinuation ? 2 : 10}px 14px ${isLastInGroup ? 6 : 2}px`,
       background: msg.isSadam ? 'rgba(255,255,255,0.08)' : 'transparent',
       opacity: msg.isSadam ? 0.7 : 1,
       borderBottom: isLastInGroup ? CC_BORDER : 'none',
@@ -205,8 +229,8 @@ export function CcfoliaMessageRow({ msg, isContinuation, isLastInGroup, hideAvat
             <span style={{ color: msg.charColor || '#7eb8d4', fontWeight: 'bold', fontSize: '0.88em' }}>
               {msg.speaker || '(이름 없음)'}
             </span>
-            {msg.isSadam && (
-              <span style={{ color: '#666', fontSize: '0.7em', border: '1px solid #3a3a3a', borderRadius: 3, padding: '0 4px' }}>사담</span>
+            {ccfoliaChannelBadge(msg.channelName) && (
+              <span style={{ color: '#666', fontSize: '0.7em', border: '1px solid #3a3a3a', borderRadius: 3, padding: '0 4px' }}>{ccfoliaChannelBadge(msg.channelName)}</span>
             )}
             {msg.type === 'hidden' && (
               <span style={{ color: '#c06060', fontSize: '0.7em', border: '1px solid #553333', borderRadius: 3, padding: '0 4px' }}>숨김</span>

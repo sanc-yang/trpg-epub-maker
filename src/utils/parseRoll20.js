@@ -203,12 +203,10 @@ async function embedImages(doc, localImageMap = {}) {
     const src = img.getAttribute('src');
     if (!src || src.startsWith('data:')) return;
 
-    // ZIP에서 추출한 로컬 이미지 맵 우선 적용
-    if (!src.startsWith('http')) {
-      const key = src.replace(/^\.\//, '');
-      if (localImageMap[key]) img.setAttribute('src', localImageMap[key]);
-      return;
-    }
+    // 로컬 이미지 맵(ZIP 상대경로 또는 MHTML 원본 URL) 우선 적용 — 있으면 네트워크 요청 없이 바로 사용
+    const key = src.replace(/^\.\//, '');
+    if (localImageMap[key]) { img.setAttribute('src', localImageMap[key]); return; }
+    if (!src.startsWith('http')) return;
 
     try {
       const resp = await fetch(src);
