@@ -5,11 +5,14 @@ import { glass } from '../theme'
 /**
  * 파일 드롭존. 로그 업로드 · 표지 이미지 업로드가 같은 모양을 쓰도록 하나로 모음.
  * size 만 다르고 테두리 · 배경 · 드래그 반응은 전부 동일.
+ * multiple 을 켜면 여러 파일을 한 번에 받음 (코코포리아 분할 로그 병합용).
  * onClear 를 넘기면 우측 상단에 X 버튼이 떠서 업로드된 걸 지우고 초기 상태로 되돌릴 수 있음.
  */
 export default function DropZone({
-  t, onFile, accept, inputId, size = 'lg', icon, children, style, onClear,
+  t, onFile, accept, inputId, size = 'lg', icon, children, style, onClear, multiple = false,
 }) {
+  // multiple 이면 onFile 에 File 배열을, 아니면 첫 번째 File 하나만 넘김
+  const emit = (files) => onFile(multiple ? Array.from(files) : files[0])
   const ref = useRef(null)
   const [over, setOver] = useState(false)
 
@@ -26,7 +29,7 @@ export default function DropZone({
       onClick={() => ref.current?.click()}
       onDragOver={(e) => { e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); onFile(e.dataTransfer.files[0]) }}
+      onDrop={(e) => { e.preventDefault(); setOver(false); emit(e.dataTransfer.files) }}
       style={{
         ...glass(t),
         position: 'relative',
@@ -59,9 +62,9 @@ export default function DropZone({
         ><X size={14} /></button>
       )}
       <input
-        id={inputId} ref={ref} type="file" accept={accept}
+        id={inputId} ref={ref} type="file" accept={accept} multiple={multiple}
         style={{ display: 'none' }}
-        onChange={(e) => { onFile(e.target.files[0]); e.target.value = '' }}
+        onChange={(e) => { emit(e.target.files); e.target.value = '' }}
       />
       {glyph}
       {children}

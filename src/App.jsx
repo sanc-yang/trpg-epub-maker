@@ -1,9 +1,9 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Sun, Moon } from 'lucide-react'
 import JSZip from 'jszip'
 import { parseRoll20Html } from './utils/parseRoll20'
 import { mhtmlToHtml } from './utils/parseMhtml'
-import { fetchCcfoliaLog, parseCcfoliaHtml, extractRoomId } from './utils/parseCcfolia'
+import { fetchCcfoliaLog, parseCcfoliaHtml, mergeCcfoliaLogs, extractRoomId } from './utils/parseCcfolia'
 import { generateEpub, parseEpubMeta, patchEpubCover, DEFAULT_BODY_FONT } from './utils/generateEpub'
 import { makeTheme, styles } from './theme'
 import { useMediaQuery } from './hooks'
@@ -64,6 +64,10 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [templateCss, setTemplateCss] = useState('')
   const [fileName, setFileName] = useState('')
+  // 병합 업로드 시 원본 파일명 목록 (2개 이상일 때만 드롭존에 리스트로 표시)
+  const [sourceFiles, setSourceFiles] = useState([])
+  // 코코포리아 업로드 방식 — null(선택 전) | 'single'(파일 하나) | 'split'(나눠 뽑은 파일 여러 개 병합)
+  const [ccfoliaUpload, setCcfoliaUpload] = useState(null)
   const [stats, setStats] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isParsing, setIsParsing] = useState(false)
@@ -129,6 +133,7 @@ export default function App() {
     setIsParsing(false)
     setSelectedMode(null)
     setFileName(name)
+    setSourceFiles([name])
     setTitle(name.replace(/\.(html|zip|mhtml|mht)$/i, ''))
     setMessages(parsed)
     setTemplateCss(css || '')
@@ -145,7 +150,7 @@ export default function App() {
       emote: isRoll20 ? parsed.filter(m => m.type === 'emote').length : 0,
       template: isRoll20 ? parsed.filter(m => m.type === 'template').length : 0,
     })
-  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setAvatars, setHiddenMessageIds, setUploadedEpub, setStats])
+  }, [setIsParsing, setSelectedMode, setFileName, setTitle, setMessages, setTemplateCss, setAvatars, setHiddenMessageIds, setUploadedEpub, setStats, setSourceFiles])
 
   // ─── Roll20 ──────────────────────────────────────────────────
   const handleRoll20File = useCallback((file) => {
@@ -198,17 +203,41 @@ export default function App() {
   }, [applyParsedResult, toast])
 
   // ─── 코코포리아 ───────────────────────────────────────────────
-  const handleCcfoliaFile = useCallback((file) => {
-    if (!file || !file.name.endsWith('.html')) return
+  // 업로드된 파일별 파싱 결과 [{ name, messages }]. 나중에 파일을 더 올리면 여기에 추가해서 다시 병합.
+  const ccfoliaPartsRef = useRef([])
+
+  // 파일이 여러 개면 파일명 순(_1, _2 … 숫자 인식)으로 정렬 후 겹치는 구간을 제거해 하나로 합침.
+  // 'split' 모드에서 이미 올린 파일이 있으면 교체가 아니라 이어서 합침 (같은 이름이면 새 파일로 덮어씀).
+  // 'single' 모드는 항상 첫 파일 하나로 교체. 새로 시작하려면 X 버튼.
+  const handleCcfoliaFiles = useCallback(async (files) => {
+    if (ccfoliaUpload !== 'split') { files = files.slice(0, 1); ccfoliaPartsRef.current = [] }
+    const htmlFiles = files.filter(f => f.name.endsWith('.html'))
+    if (!htmlFiles.length) return
     setIsParsing(true)
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const result = await parseCcfoliaHtml(e.target.result)
-      if (result.parseError) { toast(result.parseError, 'error'); setIsParsing(false); return }
-      applyParsedResult(result, file.name, false)
+
+    const newParts = []
+    for (const f of htmlFiles) {
+      const result = await parseCcfoliaHtml(await f.text())
+      if (result.parseError) { toast(`${f.name}: ${result.parseError}`, 'error'); setIsParsing(false); return }
+      newParts.push({ name: f.name, messages: result.messages })
     }
-    reader.readAsText(file, 'utf-8')
-  }, [applyParsedResult, toast])
+
+    const newNames = new Set(newParts.map(p => p.name))
+    const parts = [...ccfoliaPartsRef.current.filter(p => !newNames.has(p.name)), ...newParts]
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+    ccfoliaPartsRef.current = parts
+
+    if (parts.length === 1) { applyParsedResult({ messages: parts[0].messages, templateCss: '' }, parts[0].name, false); return }
+
+    const { messages: merged, removed } = mergeCcfoliaLogs(parts.map(p => p.messages))
+    // "로그_1.html" 외 N개 → 제목은 공통 이름("로그")으로
+    const name = parts[0].name.replace(/[_\-\s]*\d+\.html$/i, '.html')
+    const keepAvatars = avatars // 이어 붙이는 경우 화자별 인장은 유지
+    applyParsedResult({ messages: merged, templateCss: '' }, name, false)
+    setAvatars(keepAvatars)
+    setSourceFiles(parts.map(p => p.name))
+    toast(`${parts.length}개 파일 병합 완료${removed ? ` · 중복 ${removed}개 제거` : ''}`)
+  }, [applyParsedResult, toast, avatars, ccfoliaUpload])
 
   const handleFetchCcfolia = useCallback(async () => {
     if (!roomInput.trim() || isFetching) return
@@ -224,10 +253,12 @@ export default function App() {
     }
   }, [roomInput, isFetching, applyParsedResult, toast])
 
-  const handleFileDrop = useCallback((file) => {
-    if (source === 'roll20') handleRoll20File(file)
-    else handleCcfoliaFile(file)
-  }, [source, handleRoll20File, handleCcfoliaFile])
+  // 코코포리아 드롭존은 multiple 이라 File 배열이 들어옴
+  const handleFileDrop = useCallback((fileOrFiles) => {
+    const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles].filter(Boolean)
+    if (source === 'roll20') handleRoll20File(files[0])
+    else handleCcfoliaFiles(files)
+  }, [source, handleRoll20File, handleCcfoliaFiles])
 
   const switchSource = useCallback((s) => {
     if (s === source) return
@@ -237,13 +268,13 @@ export default function App() {
     }
     localStorage.setItem('trpg_source', s)
     setSource(s)
-    setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
+    setMessages([]); setStats(null); setFileName(''); setSourceFiles([]); ccfoliaPartsRef.current = []; setCcfoliaUpload(null); setTemplateCss('')
     setSelectedMode(null); setIsParsing(false); setAvatars({}); setHiddenMessageIds(new Set())
   }, [source, messages.length, fileName])
 
   // 드롭존의 X 버튼 — 업로드된 로그를 지우고 초기 화면(빈 드롭존)으로 되돌림
   const clearLog = useCallback(() => {
-    setMessages([]); setStats(null); setFileName(''); setTemplateCss('')
+    setMessages([]); setStats(null); setFileName(''); setSourceFiles([]); ccfoliaPartsRef.current = []; setCcfoliaUpload(null); setTemplateCss('')
     setSelectedMode(null); setIsParsing(false); setAvatars({}); setHiddenMessageIds(new Set())
   }, [])
 
@@ -300,7 +331,7 @@ export default function App() {
     t, page, setPage, toast,
     source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, clearLog, fileName, stats, isParsing, messages, messagesWithAvatars, templateCss,
+    handleFileDrop, clearLog, fileName, sourceFiles, ccfoliaUpload, setCcfoliaUpload, stats, isParsing, messages, messagesWithAvatars, templateCss,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont, setBodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage,

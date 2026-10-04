@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Clipboard } from 'lucide-react'
+import { Book, FolderOpen, Check, BookOpen, Dices, Theater, Download, Clipboard, FileText, Files } from 'lucide-react'
 import { glass, styles } from '../theme'
 import ToggleSwitch from '../components/ToggleSwitch'
 import DropZone from '../components/DropZone'
@@ -146,7 +146,7 @@ export default function ConvertPage({ app }) {
   const {
     t, toast, source, switchSource, ccfoliaMode, setCcfoliaMode,
     roomInput, setRoomInput, isFetching, fetchCount, handleFetchCcfolia,
-    handleFileDrop, clearLog, fileName, stats, isParsing, messages, messagesWithAvatars,
+    handleFileDrop, clearLog, fileName, sourceFiles, ccfoliaUpload, setCcfoliaUpload, stats, isParsing, messages, messagesWithAvatars,
     selectedMode, setSelectedMode,
     includeSadam, setIncludeSadam, bodyFont,
     title, setTitle, author, setAuthor, coverImage, setCoverImage, setPage, setCoverReturnTo,
@@ -292,21 +292,67 @@ export default function ConvertPage({ app }) {
         </div>
       )}
 
+      {/* 코코포리아 업로드 방식 선택 — 10000건 제한 때문에 로그를 나눠 뽑은 경우 병합 모드로 */}
+      {source === 'ccfolia' && ccfoliaMode === 'html' && !ccfoliaUpload && !fileName && (
+        <div className="choice-grid" style={{ marginBottom: 24 }}>
+          {[
+            { key: 'single', Icon: FileText, label: '로그 파일이 하나예요', desc: 'HTML 파일 하나를 그대로 변환합니다' },
+            { key: 'split', Icon: Files, label: '로그 파일이 나뉘어 있어요', desc: '나눠서 뽑은 HTML 여러 개를 겹치는 부분 없이 하나로 합칩니다' },
+          ].map(({ key, Icon, label, desc }) => (
+            <button key={key} type="button" onClick={() => setCcfoliaUpload(key)} style={{
+              ...G, borderRadius: 18, padding: '24px 24px', cursor: 'pointer',
+              textAlign: 'left', fontFamily: 'inherit', color: t.text,
+              border: `1px solid ${t.glassBorder}`, transition: 'all 0.15s',
+            }}>
+              <Icon size={26} strokeWidth={1.6} style={{ display: 'block', marginBottom: 12, color: t.textSub }} />
+              <div style={{ fontSize: '1.02em', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+              <div style={{ fontSize: '0.85em', color: t.textSub, lineHeight: 1.6 }}>{desc}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 드롭존 */}
-      {(source === 'roll20' || ccfoliaMode === 'html') && (
+      {(source === 'roll20' || (ccfoliaMode === 'html' && (ccfoliaUpload || fileName))) && (
         <DropZone
           t={t} onFile={handleFileDrop} inputId="fileInput"
           accept={source === 'roll20' ? '.zip,.mhtml,.mht' : '.html'}
+          multiple={source === 'ccfolia' && ccfoliaUpload === 'split'}
           style={{ marginBottom: 24 }}
           onClear={fileName ? clearLog : undefined}
           icon={fileName
             ? null
             : <FolderOpen size={26} strokeWidth={1.5} color={t.textSub} style={{ margin: '0 auto 9px', display: 'block' }} />}
         >
-          {fileName
+          {fileName && sourceFiles.length > 1
+            ? (
+              <div style={{ color: t.text, display: 'inline-block', textAlign: 'left' }}>
+                <div style={{ fontWeight: 600, fontSize: '1.02em', marginBottom: 6 }}>{sourceFiles.length}개 파일 병합됨</div>
+                <ol style={{ margin: 0, paddingLeft: 20, fontSize: '0.95em', lineHeight: 1.7 }}>
+                  {sourceFiles.map(n => <li key={n}>{n}</li>)}
+                </ol>
+              </div>
+            )
+            : fileName
             ? <span style={{ color: t.text, fontWeight: 600, fontSize: '1.02em', display: 'inline-flex', alignItems: 'center', gap: 6 }}><Book size={15} /> {fileName}</span>
-            : (source === 'roll20' ? 'Roll20 로그 MHTML 파일 드롭 또는 클릭' : '코코포리아 로그 HTML 파일 드롭 또는 클릭')}
+            : source === 'roll20' ? 'Roll20 로그 MHTML 파일 드롭 또는 클릭'
+            : ccfoliaUpload === 'split'
+            ? <>나눠서 뽑은 코코포리아 로그 HTML 파일들을 드롭 또는 클릭<br /><span style={{ fontSize: '0.88em', opacity: 0.75 }}>한 번에 여러 개, 또는 하나씩 차례로 올려도 돼요</span></>
+            : '코코포리아 로그 HTML 파일 드롭 또는 클릭'}
+          {fileName && source === 'ccfolia' && ccfoliaUpload === 'split' && (
+            <div style={{ fontSize: '0.88em', opacity: 0.75, marginTop: 8 }}>
+              나머지 파일을 더 드롭하면 이어서 합쳐져요
+            </div>
+          )}
         </DropZone>
+      )}
+      {source === 'ccfolia' && ccfoliaUpload && !fileName && !isParsing && (
+        <div style={{ marginTop: -14, marginBottom: 24, textAlign: 'center' }}>
+          <button type="button" onClick={() => setCcfoliaUpload(null)} style={{
+            background: 'none', border: 'none', color: t.textSub, cursor: 'pointer',
+            fontSize: '0.82em', fontFamily: 'inherit', textDecoration: 'underline',
+          }}>업로드 방식 다시 고르기</button>
+        </div>
       )}
 
       {/* 파싱 중 — 가이드 이미지보다 위에 둬서 큰 로그 파싱하는 동안 안 가려지고 바로 보이게 함 */}

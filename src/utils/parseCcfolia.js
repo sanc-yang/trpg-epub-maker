@@ -220,3 +220,50 @@ export async function parseCcfoliaHtml(htmlString) {
 
   return { messages, templateCss: '' }
 }
+
+// ── 분할 로그 병합 ─────────────────────────────────────────────────
+/**
+ * 여러 개로 나눠 뽑은 코코포리아 로그를 하나로 합침
+ *
+ * 코코포리아 HTML 내보내기는 최근 10000건까지만 뽑혀서, 긴 로그는 시점을 달리해 여러 번 뽑게 됨.
+ * 이때 앞 파일의 뒷부분과 뒷 파일의 앞부분이 겹치는 경우가 많음 (타임스탬프 없음).
+ * → 앞 파일의 꼬리(suffix)와 뒷 파일의 머리(prefix)가 완전히 일치하는 가장 긴 구간을 찾아 중복 제거.
+ *   우연히 "ㅋ" 한두 개만 겹치는 걸 오판하지 않도록 최소 겹침 길이를 둠.
+ *
+ * @param {object[][]} messageLists 파일 순서대로 정렬된 메시지 배열들
+ * @returns {{ messages: object[], removed: number }}
+ */
+const MIN_OVERLAP = 3
+
+export function mergeCcfoliaLogs(messageLists) {
+  const key = (m) => `${m.channelName}\u0000${m.speaker}\u0000${m.content}`
+  let merged = []
+  let removed = 0
+
+  for (const list of messageLists) {
+    const overlap = findOverlap(merged.map(key), list.map(key))
+    merged = merged.concat(list.slice(overlap))
+    removed += overlap
+  }
+
+  // 파일마다 id 가 0부터 다시 시작하므로 병합 후 재부여 (숨김 처리 등이 id 기준)
+  merged = merged.map((m, i) => ({ ...m, id: `ccfolia-html-${i}` }))
+  return { messages: merged, removed }
+}
+
+// a 의 suffix == b 의 prefix 인 최대 길이
+function findOverlap(a, b) {
+  if (!a.length || !b.length) return 0
+  const first = b[0]
+  for (let i = Math.max(0, a.length - b.length); i < a.length; i++) {
+    if (a[i] !== first) continue
+    const len = a.length - i
+    if (len < MIN_OVERLAP && len < b.length) break
+    let ok = true
+    for (let j = 1; j < len; j++) {
+      if (a[i + j] !== b[j]) { ok = false; break }
+    }
+    if (ok) return len
+  }
+  return 0
+}
